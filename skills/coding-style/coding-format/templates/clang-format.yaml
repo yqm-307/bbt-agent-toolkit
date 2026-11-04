@@ -1,0 +1,35 @@
+# 无项目配置时的候选样式，采用前先看样本 diff。目标仓已有 .clang-format/_clang-format 时以仓库为准，本文件的用户偏好不覆盖仓规，也不作为现有仓库的门禁。
+BasedOnStyle: LLVM
+Language: Cpp
+IndentWidth: 4
+ContinuationIndentWidth: 4
+UseTab: Never
+ColumnLimit: 120
+# 函数（含构造/析构/类内成员定义）左大括号独占下一行；if/for/while/switch/类/struct/enum/namespace/try/catch/lambda 的大括号保持同行。
+# 使用 BreakBeforeBraces: Custom 时其余 BraceWrapping 项默认为 false（不换行），只按需显式打开。
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterFunction: true
+  SplitEmptyFunction: true
+NamespaceIndentation: None
+AccessModifierOffset: -4
+DerivePointerAlignment: false
+PointerAlignment: Left
+ReferenceAlignment: Left
+BinPackArguments: true
+BinPackParameters: true
+BreakBeforeBinaryOperators: NonAssignment
+# 关掉短函数折行，否则空函数体/单语句函数体会被并回函数签名行，抵消上面的函数大括号换行。
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortLambdasOnASingleLine: Inline
+# 手工声明列不能精确复现；不启用整组最长类型对齐。
+AlignConsecutiveDeclarations: false
+MaxEmptyLinesToKeep: 1
+SortIncludes: Never
+SortUsingDeclarations: Never
+ReflowComments: false
+FixNamespaceComments: false
+InsertBraces: false
+SkipMacroDefinitionBody: true
