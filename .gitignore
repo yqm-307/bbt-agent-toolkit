@@ -1,0 +1,25 @@
+# 个人配置与凭据：示例文件可跟踪，但仍须检查其内容
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+/secrets/
+
+# 本地工作与运行产物
+/.state/
+/.venv/
+/cache/
+/logs/
+/tmp/
+*.log
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+node_modules/
+
+# 编辑器与系统文件
+.DS_Store
+.idea/
+.vscode/
