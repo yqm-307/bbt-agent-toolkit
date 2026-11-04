@@ -1,0 +1,6 @@
+# 心智模型注册表（覆盖层）
+# 模型清单与 when 说明以 Hindsight 模型自身为准（when 从 `when:` 前缀 tag 解析）。
+# 本文件只保留两类信息：
+#   default: true  —— 首轮必查项；当前无默认模型
+#   when: <文本>   —— 可选覆盖，优先级低于模型的 when: tag；仅当模型暂不能打 tag 时用
+models: []

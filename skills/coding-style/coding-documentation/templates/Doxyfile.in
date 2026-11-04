@@ -1,0 +1,44 @@
+# coding-documentation 候选模板；先由 CMake configure_file 或等价替换变量。
+PROJECT_NAME           = "@PROJECT_NAME@"
+PROJECT_NUMBER         = "@PROJECT_VERSION@"
+OUTPUT_DIRECTORY       = "@PROJECT_BINARY_DIR@/docs/doxygen"
+
+INPUT                  = "@DOC_INPUT_DIR@"
+FILE_PATTERNS          = *.h *.hh *.hpp *.hxx
+RECURSIVE              = YES
+EXCLUDE                = "@PROJECT_SOURCE_DIR@/build" "@PROJECT_SOURCE_DIR@/vendor"
+
+EXTRACT_ALL            = NO
+EXTRACT_PRIVATE        = NO
+EXTRACT_STATIC         = NO
+HIDE_UNDOC_MEMBERS     = YES
+HIDE_UNDOC_CLASSES     = YES
+
+GENERATE_HTML          = YES
+GENERATE_XML           = YES
+GENERATE_LATEX         = NO
+HTML_COLORSTYLE        = LIGHT
+GENERATE_TREEVIEW      = YES
+DISABLE_INDEX          = NO
+FULL_PATH_NAMES        = NO
+STRIP_FROM_PATH        = "@PROJECT_SOURCE_DIR@"
+FULL_SIDEBAR           = NO
+HTML_EXTRA_STYLESHEET  = "@DOXYGEN_AWESOME_DIR@/doxygen-awesome.css"
+
+HAVE_DOT               = YES
+UML_LOOK               = YES
+CALL_GRAPH             = NO
+CALLER_GRAPH           = NO
+DOT_IMAGE_FORMAT       = svg
+DOT_GRAPH_MAX_NODES    = 80
+
+# Mermaid / PlantUML 按目标版本帮助和本地资源配置，不默认加载外部 CDN。
+
+# 如果项目使用 @thread_safety 等自定义标签，显式声明别名。
+# ALIASES              += "thread_safety=\\par Thread safety:"
+
+QUIET                  = NO
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED   = YES
+WARN_IF_DOC_ERROR      = YES
+WARN_LOGFILE           = "@PROJECT_BINARY_DIR@/docs/doxygen/warnings.log"

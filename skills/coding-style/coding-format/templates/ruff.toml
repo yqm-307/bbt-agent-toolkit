@@ -1,0 +1,9 @@
+# 无既有配置时的候选，不覆盖项目真源；最低 Python 版本由目标仓设定。
+line-length = 88
+force-exclude = true
+extend-exclude = ["vendor", "third_party", "*_pb2.py", "*.generated.py"]
+
+[format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"

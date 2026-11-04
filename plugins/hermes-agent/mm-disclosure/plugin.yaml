@@ -1,0 +1,4 @@
+name: mm-disclosure
+version: 0.3.0
+description: 渐进式披露的 Hindsight 心智模型插件——首轮注入模型索引（skills 式渐进披露），正文按需由 agent 拉取；索引模型来自 list_mental_models，when 从 `when:` tag 解析，bank 与连接名经可选配置决定。
+provides_hooks: [pre_llm_call, post_tool_call, on_session_end]
