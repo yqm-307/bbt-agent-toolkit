@@ -27,14 +27,13 @@ bbt-agent-toolkit/
 |---|---|
 | `coding-style` | `clean-code`、`coding-format`、`coding-documentation` |
 | `assurance` | `test-case-design` |
-| `engineering` | `context-prefix-slimming`、`git-worktree-ops` |
+| `engineering` | `context-prefix-slimming` |
 | `knowledge` | `decision-matrix` |
-| `prompt-opt` | `i-have-adhd` |
 | `workflow` | `chinese-documentation`、`mwc-bro`、`mwc-in-your-own-words`、`mwc-sharpen`、`mwc-teach` |
 
 分类仅用于导航，不改变 skill 名称；`mwc-*` 直接放在 `workflow/` 下，不额外增加族目录。
 
-目录按实际内容创建；上图是结构约定，不表示所有能力已交付。组件专属的参考资料、脚本、模板和测试随组件保存，不在根目录重复归档；只有跨组件验证才放根 `tests/`。当前仅初始化仓库说明与规则，尚未迁入 skill、插件或工具，也未建立统一验证命令或 CI。
+目录按实际内容创建；上图是结构约定，不表示所有能力已交付。组件专属的参考资料、脚本、模板和测试随组件保存，不在根目录重复归档；只有跨组件验证才放根 `tests/`。首批 11 个 skill 已收录：本批迁移**未运行任何测试或验证脚本**，也未在新机器验证；部分资产许可待定，不代表可公开发布。尚未迁入插件或工具，未建立统一验证命令或 CI。
 
 ## 使用与贡献
 
