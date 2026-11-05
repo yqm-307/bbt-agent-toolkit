@@ -45,7 +45,10 @@ def main():
     header = skill.split('---', 2)[1]
     require(re.search(r'^name: decision-matrix$', header, re.M), 'name不匹配')
     description = re.search(r'^description: (.+)$', header, re.M)
-    require(description is not None and '当' in description[1][:57], '缺触发说明')
+    desc = (description[1].strip().strip('"\'') if description else '')
+    # 触发说明：中文描述在开头写「当…」，英文描述以「Use when」开头
+    has_trigger = '当' in desc[:57] or desc[:40].lower().startswith('use when')
+    require(description is not None and has_trigger, '缺触发说明')
     links = 0
     for file in ROOT.rglob('*.md'):
         text = file.read_text(encoding='utf-8')
