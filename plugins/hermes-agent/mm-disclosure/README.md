@@ -26,7 +26,10 @@ Hermes 原生插件：首轮向主会话注入 Hindsight 心智模型**索引**�
 ```bash
 HERMES_HOME=<target-profile-home> sh plugins/hermes-agent/mm-disclosure/link.sh
 python3 -m unittest discover -s plugins/hermes-agent/mm-disclosure/tests -v
+PYTHONDONTWRITEBYTECODE=1 hermes plugins doctor plugins/hermes-agent/mm-disclosure --ci
 ```
+
+`plugins doctor` 用宿主的真实运行时契约检查清单解析、导入与 hook 注册，不联网、不启用插件；加 `PYTHONDONTWRITEBYTECODE=1` 避免在源码树留下 `__pycache__`。
 
 `link.sh` 只接受不存在的目标或已指向本源码的符号链接，发现普通目录/文件时停止；不自动启用插件、不修改运行配置。修改后需在新会话验证，已有会话保存的 system prompt 不会被链接切换回写。
 
@@ -36,4 +39,4 @@ python3 -m unittest discover -s plugins/hermes-agent/mm-disclosure/tests -v
 - 运行事件写 `$HERMES_HOME/cache/mm-disclosure/events.jsonl`（超 ~2MB 轮转保留最近一半），只含 session/model/bank 元数据、长度与耗时，不含凭据正文，不入库。
 - Hindsight 返回的模型正文由 agent 按规则显式拉取；插件不自动把正文注入工具调用，不授予权限，不扩大范围。当前用户要求、实时事实、宿主安全策略优先。
 - `rule.md` 是常驻渐进披露规则；`__init__.py` 负责注册、索引构建、Hindsight MCP 读取与埋点；`models.yaml` 只保留 `[default]` 覆盖层；`plugin.yaml` 是 Hermes 插件清单。
-- 本次迁移未在新机器或干净环境实测，未执行安装、插件 doctor 或宿主加载；仅做源码回读、资源核对、语法解析与空白检查；离线契约测试未运行。
+- 已实测范围：本机离线契约测试（15 项通过）与 `hermes plugins doctor --ci`（清单 0.3.0、3 个 hook、通过）；未实测范围：新机器或干净环境安装、宿主实际加载、对真实 Hindsight 服务的端到端首轮注入。

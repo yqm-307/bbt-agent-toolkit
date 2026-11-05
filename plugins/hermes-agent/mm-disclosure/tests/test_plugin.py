@@ -32,7 +32,8 @@ class TestPlugin(unittest.TestCase):
         self.assertEqual(PLUGIN.RULE, rule)
         self.assertLessEqual(len(rule), PLUGIN.MAX_CHARS)
         self.assertIn("等待返回后再调用相关任务工具", rule)
-        self.assertNotIn("hermes-alice", rule)
+        # 规则不得写死具体 bank 名；需要时由索引携带
+        self.assertNotIn('bank_id="', rule)
 
     def test_platform_allowlist_accepts_any_profile(self):
         self.assertEqual(PLUGIN._rule_section({"profile_name": "anyone", "platform": "webui"}), PLUGIN.RULE)

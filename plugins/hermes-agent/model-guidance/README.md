@@ -49,7 +49,7 @@
 - 首次先确认解释器版本及 `hermes --help`，并在所选解释器中确认 `hermes_constants`、`hermes_yaml`（或 `yaml`）可导入。需要宿主支持 `pre_llm_call`、system prompt section、插件命令注册及相应的历史载体字段；确切兼容版本本次未核实。
 - `profiles.yaml` 和 `prompts/` 随包提供，按模型族及使用模式选择，是可修改的通用策略；DeepSeek 主模型正文当前为空。`long` 模式明确使用 Hermes 委派工具与 OMH 路由、DAG/todo 能力；选择该模式前需接入相应公开工具或按目标宿主调整正文。其他模式不因此要求安装 OMH。
 - 安装脚本需 POSIX shell、`readlink -f`、`ln -s`，并要求显式传入目标 `HERMES_HOME` 和该目录的写权限。不自动启用插件或重启服务；符号链接使用期间保留源码位置。
-- 本包仅保留原有验证入口；本次迁移未执行准备命令、测试、安装或宿主加载，新机器可用性未验证。
+- 已实测范围：本机离线测试（27 项通过，`python3 -I` 隔离模式）与 `hermes plugins doctor --ci`（清单 0.1.0、1 个 hook、通过）；未实测范围：新机器或干净环境安装、宿主实际加载、WebUI/CLI 会话级 `/guide` 与真实模型切换的端到端行为。
 
 ## 安装与验证
 

@@ -21,19 +21,33 @@ bbt-agent-toolkit/
 └── docs/decisions/           # 架构与维护取舍
 ```
 
-首批 skill 分类：
+已收录 skill 分类：
 
 | 能力域 | Skill |
 |---|---|
 | `coding-style` | `clean-code`、`coding-format`、`coding-documentation` |
 | `assurance` | `test-case-design` |
-| `engineering` | `context-prefix-slimming` |
+| `engineering` | `context-prefix-slimming`、`git-worktree-ops` |
 | `knowledge` | `decision-matrix` |
-| `workflow` | `chinese-documentation`、`mwc-bro`、`mwc-in-your-own-words`、`mwc-sharpen`、`mwc-teach` |
+| `workflow` | `chinese-documentation`、`harness-neutral-agent-prompts`、`mwc-bro`、`mwc-chat-end`、`mwc-in-your-own-words`、`mwc-ketchup`、`mwc-recall`、`mwc-sharpen`、`mwc-teach` |
 
 分类仅用于导航，不改变 skill 名称；`mwc-*` 直接放在 `workflow/` 下，不额外增加族目录。
 
-目录按实际内容创建；上图是结构约定，不表示所有能力已交付。组件专属的参考资料、脚本、模板和测试随组件保存，不在根目录重复归档；只有跨组件验证才放根 `tests/`。首批 11 个 skill 已收录：本批迁移**未运行任何测试或验证脚本**，也未在新机器验证；部分资产许可待定，不代表可公开发布。已收录 [model-guidance 插件](plugins/hermes-agent/model-guidance/README.md)、[mm-disclosure 插件](plugins/hermes-agent/mm-disclosure/README.md) 和 [prompt-health 工具](tools/prompt-health/README.md)，未建立统一验证命令或 CI。
+目录按实际内容创建；上图是结构约定，不表示所有能力已交付。组件专属的参考资料、脚本、模板和测试随组件保存，不在根目录重复归档；只有跨组件验证才放根 `tests/`。已收录 16 个 skill（见上表）；部分资产许可待定，不代表可公开发布。下列验证状态只记录实际执行过的检查，未列出的检查均未执行；未建立统一验证命令或 CI。
+
+- `clean-code`：`scripts/check_examples.py` 在 WSL2（g++ 15.2.0、Python 3.14.9）实跑通过（3 个 C++17 示例与本地链接检查，退出码 0）；未在其他平台验证。
+- `coding-format`：`scripts/validate.py` 未运行。
+- `coding-documentation`：`scripts/validate.py` 未运行。
+- `decision-matrix`：`scripts/check_fixtures.py` 未运行。
+- `git-worktree-ops`：无可执行入口；`.gitignore` 尾斜杠与同分支多 worktree 两条行为断言在临时仓中实测，未执行 push 与 `gh pr create`。
+- `mwc-chat-end`：`scripts/webui_archive.py self-test` 实跑通过（Python 3.14.9）；真实 `check` / `archive` 调用未运行。
+- 无可执行入口的提示词类 skill（`chinese-documentation`、`context-prefix-slimming`、`harness-neutral-agent-prompts`、`mwc-bro`、`mwc-in-your-own-words`、`mwc-ketchup`、`mwc-recall`、`mwc-sharpen`、`mwc-teach`、`test-case-design`）：只做了 frontmatter 与相对链接检查，提示词效果未在宿主中实测。
+- [mm-disclosure 插件](plugins/hermes-agent/mm-disclosure/README.md)：离线单元测试 15 项通过；`hermes plugins doctor --ci` 通过（0.3.0，3 个 hook）。未验证宿主实际加载与新会话首轮注入，未对真实 Hindsight 服务端做端到端测试。
+- [model-guidance 插件](plugins/hermes-agent/model-guidance/README.md)：离线单元测试 27 项通过；`hermes plugins doctor --ci` 通过（0.1.0，1 个 hook）。未验证宿主实际加载与会话级 `/guide` 端到端。
+- [omh-dag-boundary 插件](plugins/hermes-agent/omh-dag-boundary/README.md)：离线单元测试 13 项通过。未验证宿主 `pre_tool_call` 改写行为、真实 OMH 派发链路与宿主版本兼容性。
+- [prompt-health 工具](tools/prompt-health/README.md)：本次迁移未改动、未重新运行检查，因此此处不给出验证结论。
+- [dag-scope-audit 工具](tools/dag-scope-audit/README.md)：离线单元测试 23 项通过；`--help` 正常退出，`--db` 指向不存在的文件时报错并退出 2。未在真实会话库或真实 OMH 运行记录上执行；未在 macOS、Windows 或 Python 3.10–3.13 上实测。
+- [dag-subagent-scope-control.md](docs/knowledge/dag-subagent-scope-control.md)（知识文档）：文内相对链接、仓库路径与引用的测试数（插件 13 项、工具 23 项）已核对；文档只描述通用方法与限制，不含本机运行样本。
 
 ## 使用与贡献
 

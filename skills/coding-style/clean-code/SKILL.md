@@ -46,6 +46,6 @@ related_skills: []
 ## 迁移适配说明
 
 - 纯阅读无需编译工具。辅助入口 `scripts/check_examples.py` 需 Python 3.6+ 与支持 C++17、`-pthread` 的 g++；脚本通过 PATH 查找名为 `g++` 的程序，其他编译器存在不代表满足前提，并须允许在临时目录（可通过 `TMPDIR` 指定）编译和执行产物。
-- 首次先核 `python3 --version`、`command -v g++`、`g++ --version`。Python 获取入口：https://www.python.org/downloads/ ；GCC 获取入口：https://gcc.gnu.org/install/binaries.html 。Debian/Ubuntu 可在获得安装和提权授权后使用 `sudo apt-get install python3 g++`；其他平台按发行方式准备，不自动安装。上述准备命令及下述检查本次均未执行。
+- 首次先核 `python3 --version`、`command -v g++`、`g++ --version`。Python 获取入口：https://www.python.org/downloads/ ；GCC 获取入口：https://gcc.gnu.org/install/binaries.html 。Debian/Ubuntu 可在获得安装和提权授权后使用 `sudo apt-get install python3 g++`；其他平台按发行方式准备，不自动安装。安装命令本次未执行；版本核对已在本机执行（见下条）。
 - 文中 `python3 skills/coding-style/clean-code/scripts/...` 命令从本工具箱仓库根执行；放在别处时改为实际路径。
-- 既有验证入口随包保留，**本次迁移未运行**；新机器可用性未验证。
+- 既有验证入口随包保留。2026-11-05 在 WSL2（`Linux 6.18.33.2-microsoft-standard-WSL2`，Ubuntu 版 g++ 15.2.0 / Python 3.14.9）以 `python3 -I skills/coding-style/clean-code/scripts/check_examples.py` 实跑：3 个 C++17 示例编译并断言通过，本地链接检查通过，退出码 0。新机器与新平台可用性仍未验证。
