@@ -28,7 +28,7 @@ errcode Read(Buffer& out, opt);           // 带选项的阻塞版，同样两�
 tuple<Buffer, errcode> Read(opt);
 ```
 
-返回值版直接调用出参版实现，避免两份逻辑；错误码在 `tuple` 中永远放最后（`ErrTuple` 这类错误在前的写法属存量，新接口不沿用）。
+返回值版直接调用出参版实现，避免两份逻辑；错误码在 `tuple` 中永远放最后；错误在前的旧写法属存量，新接口不沿用（例：bbtools-coroutine 的 `TupleErr<T...>` 即错误在后，`ErrTuple` 为旧形态）。
 
 view、span、指针、引用不延长底层对象寿命。保存输入供调用后使用时，优先持有值或所有权；仅把引用改成指针不能修复悬空。
 
