@@ -14,7 +14,7 @@ C++ 任务从 SKILL.md 进入后先读本页。目标仓语言版本、错误协
 - **对象有效**：成员使用前初始化、按声明序初始化；转换构造通常 explicit，优先 Rule of Zero。析构不让异常逸出，noexcept 只在全部路径兑现承诺时使用。需要恢复构造失败且项目不用异常时才考虑结果型工厂。
 - **边界与失败**：外部输入用运行时校验，不靠 assert；无符号类型不代表输入已经验证为非负，转换前核符号和目标范围，构造入口也不例外。核长度、范围、溢出和返回值。遵守目标错误协议，不吞异常或擅改错误码；失败不留下未声明的半份修改。
 - **异步寿命与同步**：逃逸 lambda 优先显式捕获；按值捕获 this/裸指针/view 仍是借用。共享状态使用完整锁或原子协议，volatile 不是同步；核回调重入、线程亲和、挂起与销毁边界。
-- **类型与依赖**：只读用 const、空值用 nullptr；auto 不掩盖所有权或数值范围。头文件自给，直接 include 使用的符号；不在头文件全局 using namespace，不靠静态初始化/析构顺序维持可用性。
+- **类型与依赖**：只读用 const、空值用 nullptr；类型已在右侧写明或过长时（`make_*`、结构化绑定、迭代器、lambda）多用 auto，但不用它掩盖所有权或数值范围；多结果建议用 `tuple`/`Result` 返回并提供出参兼容版（见[所有权](ownership-and-lifetime.md)“参数和返回”）。头文件自给，直接 include 使用的符号；不在头文件全局 using namespace，不靠静态初始化/析构顺序维持可用性。接口头宜保持洁净：非极简函数体建议放 `.cc`，模板定义建议放单独实现头（见[头文件与构建](headers-and-build.md)）。
 
 详细条件按入口选择 [所有权](ownership-and-lifetime.md)、[并发](concurrency-and-coroutines.md)、[头文件与构建](headers-and-build.md)；需要算法/捕获/RAII/枚举的完整对照再读 [实现示例](readability-examples.md)。
 
