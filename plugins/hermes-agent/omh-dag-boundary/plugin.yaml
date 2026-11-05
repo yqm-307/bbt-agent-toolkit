@@ -1,0 +1,4 @@
+name: omh-dag-boundary
+version: 0.1.0
+description: 给 OMH DAG 节点的 delegate_task 任务书追加一段默认边界条款；只认 goal 里的 [dag:run/node] 标记，其余委派原样放行。
+provides_hooks: [pre_tool_call]
