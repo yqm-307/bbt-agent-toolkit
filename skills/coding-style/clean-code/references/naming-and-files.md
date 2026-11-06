@@ -12,6 +12,7 @@
 - `const` 不意味着全程常量：局部 `const int retry_count` 不必用 `k`。新文件作用域常量用 `kName`。
 - 枚举值跟文件既有风格（`CO_RUNNING`、`COMUTEX_FREE`）；Google 建议 `kName`，存量不顺手改名，新独立模块可用 `kName`，同一文件不混。
 - 名字长短匹配作用域；下标 `i` 合理，公开 API 不删字母缩写。单位和布尔含义明确，如 `timeout_ms`。
+- 实现文件和示例反复出现冗长限定名时，优先用 `using namespace` 简化，并尽量缩小作用域；遇到同名冲突或符号来源不清时，改用具名 `using` 或命名空间别名。公共头文件的边界沿用[头文件与构建](headers-and-build.md#自给与依赖)。
 
 ## 排版
 
