@@ -40,7 +40,7 @@ bbt-agent-toolkit/
 - `coding-documentation`：`scripts/validate.py` 未运行。
 - `decision-matrix`：`scripts/check_fixtures.py` 未运行。
 - `git-worktree-ops`：无可执行入口；`.gitignore` 尾斜杠与同分支多 worktree 两条行为断言在临时仓中实测，未执行 push 与 `gh pr create`。
-- `mwc-chat-end`：`scripts/webui_archive.py self-test` 实跑通过（Python 3.14.9）；真实 `check` / `archive` 调用未运行。
+- `mwc-chat-end`：`scripts/session_archive.py self-test` 实跑通过（Python 3.14.9）；WebApp 侧 `check` 在真实会话上运行，`hermes sessions archive` 的 `--include-open` 归档在一次性会话上实测并读回，当前会话做过归档→读回→恢复往返；压缩轮换后的回退路径与 WebUI 分支只有自检覆盖，真实 WebUI `check` / `archive` 未运行。
 - 无可执行入口的提示词类 skill（`chinese-documentation`、`context-prefix-slimming`、`harness-neutral-agent-prompts`、`mwc-bro`、`mwc-in-your-own-words`、`mwc-ketchup`、`mwc-recall`、`mwc-sharpen`、`mwc-teach`、`test-case-design`）：只做了 frontmatter 与相对链接检查，提示词效果未在宿主中实测。
 - [mm-disclosure 插件](plugins/hermes-agent/mm-disclosure/README.md)：离线单元测试 15 项通过；`hermes plugins doctor --ci` 通过（0.3.0，3 个 hook）。未验证宿主实际加载与新会话首轮注入，未对真实 Hindsight 服务端做端到端测试。
 - [model-guidance 插件](plugins/hermes-agent/model-guidance/README.md)：离线单元测试 27 项通过；`hermes plugins doctor --ci` 通过（0.1.0，1 个 hook）。未验证宿主实际加载与会话级 `/guide` 端到端。

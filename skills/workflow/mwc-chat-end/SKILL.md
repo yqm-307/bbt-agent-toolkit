@@ -1,6 +1,6 @@
 ---
 name: mwc-chat-end
-description: "Use when 用户说想结束聊天、收尾、「预归档」「归档吧」「检查一下准备结束」或点名本 skill；never auto-load. 先检查能否结束并汇报检查点，再让用户在 1–5 选项中二次确认（1 恒为 agent 的综合推荐），按选择收尾，最后一步由用户回 1 确认后归档当前 WebUI 会话。"
+description: "Use when 用户说想结束聊天、收尾、「预归档」「归档吧」「检查一下准备结束」或点名本 skill；never auto-load. 先检查能否结束并汇报检查点，再让用户在 1–5 选项中二次确认（1 恒为 agent 的综合推荐），按选择收尾，最后一步由用户回 1 确认后归档当前会话（WebUI 或官方 WebApp / 桌面端）。"
 related_skills: []
 ---
 
@@ -12,7 +12,7 @@ related_skills: []
 
 用户说「结束聊天」「收尾」「预归档」「检查一下，准备归档」「归档吧」或点名本 skill 时执行。仅讨论、阅读或修改本 skill 不算结束指令。不自动触发，不给简单会话强加流程。
 
-**结束指 WebUI 的会话归档，不是另写 summary 文件。** 归档可恢复，不删除聊天记录、工作区或服务。
+**结束指会话归档（WebUI，或官方 WebApp / 桌面端），不是另写 summary 文件。** 归档可恢复，不删除聊天记录、工作区或服务。
 
 ## 第一段：检查并汇报检查点
 
@@ -27,7 +27,7 @@ related_skills: []
    - 本会话临时资源的现状：临时文件（scratch、一次性脚本、导出）、后台进程/端口/隧道、测试服务/容器。**此处只盘点并列清单，不动手清理**，是否清理由第二段用户选择决定；未确认归属的不列入清理对象。
 3. **盘点可沉淀的经验**：本会话里用户的纠正、踩到的坑、被证实有效的做法，以及它们对应的 prompt 落点（skill、AGENTS.md、记忆）。只列候选与落点，不写入。
 4. **复用证据，补缺不重跑**：已有审查、测试及验收内容未变且仍适用时复用，新变更只补查影响面；运行态等易变事实按风险只读刷新；未知或验证失败不算通过。
-5. **确认归档入口**：运行下方脚本 `check`，确认当前 WebUI 会话 ID、profile 和归档状态；它只证明技术入口，不代替业务检查。非 WebUI 或受限环境仍可完成检查，但不得声称能代执行归档。
+5. **确认归档入口**：运行下方脚本 `check`，确认当前会话平台（WebUI / 官方 WebApp·桌面端）、会话 ID、profile、归档状态，以及是否被 pin（WebApp 侧被 pin 会挡住归档）。它只证明技术入口，不代替业务检查。平台不支持（CLI、cron、subagent 等）或受限环境仍可完成检查，但不得声称能代执行归档。
 
 ### 汇报格式
 
@@ -42,7 +42,7 @@ related_skills: []
 > | 未完成事项 | 无 / 已转交到 …  |
 > | 临时残留 | 无 / 清单：… |
 > | 可沉淀经验 | 无 / 候选：… → 落点 … |
-> | 归档入口 | 可用 / 受阻：… |
+> | 归档入口 | <WebUI / WebApp> 可用 / 受阻：… |
 >
 > 请选：
 > 1. **推荐：<本次具体动作，如「清理残留 + 沉淀经验后结束」>**：agent 按上面盘点给出的综合方案，写明含哪些动作和对象。
@@ -55,7 +55,7 @@ related_skills: []
 - 用户也可以组合，如「3+4」，按并集执行；4 已含清理，所以 3+4 等于 4。2 和 5 不与其它选项组合。
 - 3、4 对应的清单为空时说明「无需清理」「没有值得沉淀的经验」，不凭空造活，仍进入「最后一步：确认归档」。只有选 2（以及 1 展开成纯「直接结束」）不再二次确认。
 - 有阻塞时 1 是先补缺口；用户仍选 2–4 的，带着缺口结束是用户的决定，归档可恢复，把遗留缺口原样写进结束回复，不隐藏风险。
-- 单纯归档入口受限：说「收尾已完成；自动归档受阻：<原因>」，请用户在 WebUI 手动操作。
+- 单纯归档入口受限：说「收尾已完成；自动归档受阻：<原因>」，按平台请用户手动归档（WebUI 侧栏归档；WebApp / 桌面端侧栏 Archive）。被 pin 挡住时先问是否 unpin，不自行解 pin。
 
 ## 第二段：按选择执行并归档
 
@@ -89,7 +89,7 @@ related_skills: []
 
 用户回「1」（或「归档」「好」等明确同义回复）就立即归档，不再追问；回 2 就保留会话，说明随时可再说「归档吧」。这一步要求用户在动作完成后明确回应，选择阶段的回复不能顶替。若这期间用户追加了新事项，先处理新事项，再重新问这一句。
 
-归档用脚本对确认过的当前会话执行。脚本通过 API 读回 `archived=true` 且 WebUI 会话 ID/profile 一致后，才回复：
+归档用脚本对确认过的当前会话执行，并按平台读回：WebUI 走其 API，WebApp / 桌面端只读读回会话存储。读到 `archived` 为真且会话 ID / profile 一致后，才回复：
 
 > **已结束并归档，本会话已闭环。**（附：本次执行了选项几，遗留项若有。）
 
@@ -97,40 +97,43 @@ related_skills: []
 
 请求失败、超时或读回失败：说「归档尚未确认：<最短原因>」，保留待确认状态；先只读检查，不能盲目重发、直改数据库或假报闭环。用户手动归档的，能读回就验证，否则只说明尚未核实。
 
-## WebUI 执行入口
+## 归档执行入口（按平台分流）
 
-`scripts/webui_archive.py` 使用 Python 标准库，复用 WebUI 原生 API，不改 WebUI 核心、不直写存储。
+`scripts/session_archive.py` 只用 Python 标准库。平台由脚本按环境变量判定，不看会话标题或用户描述：
 
-- 支持：本机 WebUI、命名 profile、宿主提供 `HERMES_UI_SESSION_ID`（12 位小写十六进制）、`HERMES_SESSION_PLATFORM=webui`、`HERMES_HOME`、`HERMES_WEBUI_PORT`。
-- **目标只能取 `HERMES_UI_SESSION_ID`**，再与当前对话确认的 ID 和 API 读回值核对；`HERMES_SESSION_ID` 是可能随压缩变化的内部 ID，不可替代或作为回退。缺 WebUI ID 就停止。
-- 认证：宿主已提供的 `HERMES_WEBUI_PASSWORD`，仅内存登录 Cookie，结束时退出该临时登录；不读取浏览器会话库、不伪造签名、不输出密码或 Cookie。
-- 连接固定 loopback、禁止重定向与环境代理。脚本拒绝 ID/profile 不匹配、未经精确 ID 确认的归档；无批量、删除、部署能力。
-- 前提缺失或 SSO-only：停止脚本路径，使用已授权的浏览器登录及原生归档入口，或请用户手动归档；不猜密码、不修改认证配置。
+- **WebUI**（`HERMES_SESSION_PLATFORM=webui` + 12 位小写十六进制 `HERMES_UI_SESSION_ID`）：复用 WebUI 原生 API，不改 WebUI 核心、不直写存储。认证用宿主已提供的 `HERMES_WEBUI_PASSWORD`，仅内存登录 Cookie 并在结束时退出该临时登录；不读浏览器会话库、不伪造签名、不输出密码或 Cookie。**目标只能取 `HERMES_UI_SESSION_ID`**，`HERMES_SESSION_ID` 会随压缩变化，不可替代或作为回退。连接固定 loopback、禁止重定向与环境代理。前提缺失或 SSO-only 时停止脚本路径，改用手动归档。
+- **官方 WebApp / 桌面端**（`HERMES_SESSION_PLATFORM` 为 `local` / `gui` / `desktop`，且 `HERMES_SESSION_ID` 或 `HERMES_SESSION_CHAT_ID` 匹配 `local-` 加 64 位小写十六进制）：归档就是该会话在 profile 会话存储里的 `archived` 标记。脚本先只读解析到当前行（行 id 优先；压缩后 agent id 会轮换成 `<时间戳>_<hex>`，此时按 `HERMES_SESSION_CHAT_ID` 回退，并跳过 `end_reason='compression'` 的旧段）和 pin 状态，再调用 `hermes sessions archive --chat-id <解析到的行 chat_id> --include-open --yes`，最后只读读回。`check` 输出的是解析后的行 id，`--confirm-session` 就用它，不用环境变量里的原始 id。
+  - **pin 会挡住归档**：CLI 一律跳过被 pin 的会话（`--include-pinned` 只有 prune 有）。脚本直接拒绝并说明原因；是否 unpin 由用户决定，不自行解 pin。
+  - `--include-open` 必须带：桌面端 / WebApp 会话从不写 `ended_at`，缺它会漏掉当前会话。
+  - CLI 的选择键是 chat id（精确但 chat 级）：行 `chat_id` 不是 `local-*`（例如历史 adopted chat）或为空时可能命中同 chat 的兄弟会话，脚本直接拒绝，请用户改在应用内归档。
+  - CLI 在独立进程直接写会话存储：不 bump 可见 revision、不会通知正在运行的网关（WebApp 侧栏约 20 秒轮询自行刷新，桌面端刷新时机未核实），但 `on_session_delete` 插件钩子仍会在该 CLI 进程内触发。
+  - 行查询失败、CLI 未报告恰好 1 个会话、或读回不一致，一律按失败处理，不重发、不直改数据库。
+- 其它平台（CLI、cron、subagent 等）：脚本明确拒绝，说明需手动归档。
 
 `SKILL_DIR` 必须取本次 `skill_view` 返回的真实目录，不假定当前工作区就是技能仓库：
 
 ```bash
-python3 "$SKILL_DIR/scripts/webui_archive.py" check
-# 仅在用户选定 1/2/3 后；<confirmed-session-id> 用确认过的字面 WebUI ID，不用标题匹配。
-python3 "$SKILL_DIR/scripts/webui_archive.py" archive --confirm-session '<confirmed-session-id>'
+python3 "$SKILL_DIR/scripts/session_archive.py" check
+# 仅在用户选定 1/2/3 后；<confirmed-session-id> 用确认过的字面会话 ID，不用标题匹配。
+python3 "$SKILL_DIR/scripts/session_archive.py" archive --confirm-session '<confirmed-session-id>'
 ```
 
-脚本的 `verified` 只表示 API 状态经核验；是否闭环仍由主 agent 的业务检查决定。接口版本或 ID 格式变化时先核实再适配，不放宽校验凑成功。
+脚本的 `verified` 只表示归档状态经读回核验；是否闭环仍由主 agent 的业务检查决定。接口版本、ID 格式或 CLI 输出变化时先核实再适配，不放宽校验凑成功。
 
 ## 验证与边界
 
 维护本 skill 后运行：
 
 ```bash
-python3 "$SKILL_DIR/scripts/webui_archive.py" self-test
+python3 "$SKILL_DIR/scripts/session_archive.py" self-test
 ```
 
-脚本自检不发网络请求，覆盖身份边界、压缩后 WebUI ID 保持、只读检查、精确写入、幂等和读回失败；真实接口变更另用独立测试会话验证归档、回复保存及恢复，不拿用户正在工作的会话做实验。
+脚本自检不发网络请求、不调用真实 CLI：覆盖平台识别与拒绝、压缩轮换后按 chat id 回退、WebUI 身份边界与压缩后 ID 保持、只读检查、精确写入、幂等、读回失败，以及 WebApp 侧的 pin 拒绝、确认 id 校验、adopted / 无 chat id 拒绝、CLI 计数校验与读回。真实接口 / CLI 变更另用一次性会话验证归档与恢复，不拿用户正在工作的会话做实验。
 
 不会因为执行本 skill 自动放宽任何安全、提交或生产门禁。
 
 ## 迁移适配说明
 
-- 宿主：Hermes WebUI（命名 profile 模式）。环境变量 `HERMES_SESSION_PLATFORM=webui`、`HERMES_UI_SESSION_ID`、`HERMES_HOME`、`HERMES_WEBUI_PORT` 由宿主提供，密码登录另需宿主已提供的 `HERMES_WEBUI_PASSWORD`；脚本不读文件、不读浏览器会话库。
-- 运行时依赖：仅 Python 标准库，无第三方包；只连 loopback，禁止重定向与环境代理。WebUI API 版本未做范围外适配，接口或 ID 格式变化时按正文先核实再适配。
-- 首次运行验证：`python3 <SKILL_DIR>/scripts/webui_archive.py self-test`。本次迁移在 Python 3.14.9 上执行该自检，输出 `PASS`。`check` / `archive` 的真实 API 路径、其它 Hermes 版本、其它宿主与非 WebUI 环境**未验证**；缺 `HERMES_UI_SESSION_ID` 或 SSO-only 时按正文停止脚本路径，改由用户手动归档。
+- 宿主：Hermes WebUI（命名 profile 模式）与官方 WebApp / 桌面端（网关承载）。环境变量 `HERMES_SESSION_PLATFORM`、`HERMES_SESSION_ID`、`HERMES_UI_SESSION_ID`、`HERMES_HOME`、`HERMES_WEBUI_PORT` 由宿主提供，WebUI 密码登录另需宿主已提供的 `HERMES_WEBUI_PASSWORD`；脚本不读浏览器会话库、不读密码文件。
+- 运行时依赖：仅 Python 标准库，无第三方包；WebApp 侧另需 `hermes` CLI 在 PATH 上，找不到即拒绝。WebUI 连接只走 loopback、禁止重定向与环境代理。
+- 首次运行验证：`python3 <SKILL_DIR>/scripts/session_archive.py self-test`，输出 `PASS`（Python 3.14.9）。WebApp 侧另实测：`check` 读出 `platform=webapp`、`archived=false`；`hermes sessions archive --chat-id … --include-open --yes` 对已结束会话和从未结束的会话都归档成功并读回 `archived=1`；对正在运行的会话做过归档 → 读回 → 恢复往返。压缩轮换后（agent id 为 `<时间戳>_<hex>`、chat id 仍为原 `local-*`）的回退路径只由自检覆盖，未在真实压缩过的 WebApp 会话上验证。WebUI 分支只用注入的假 API 自检，真实 WebUI 归档、其它 Hermes 版本与 SSO-only 环境**未验证**；缺 `HERMES_UI_SESSION_ID`、平台不支持或 SSO-only 时按正文停止脚本路径，改由用户手动归档。
