@@ -131,17 +131,21 @@ def perform_webui(port, sid, profile, action):
 def read_session(home, key):
     """The current session's store row, read-only: id, chat_id, archived, pinned."""
     db = home / "state.db"
-    with contextlib.closing(sqlite3.connect(f"file:{db}?mode=ro", uri=True)) as conn:
-        conn.row_factory = sqlite3.Row
-        row = conn.execute("SELECT id, chat_id, archived, pinned FROM sessions WHERE id = ?"
-                           " AND COALESCE(end_reason, '') <> 'compression'", (key,)).fetchone()
-        if row is None:
-            # A compression rotation mints a new row id; the chat id still names the live segment.
-            # The archived-away parent can itself carry the chat id as its row id, so it is skipped.
-            row = conn.execute(
-                "SELECT id, chat_id, archived, pinned FROM sessions WHERE chat_id = ?"
-                " AND COALESCE(end_reason, '') <> 'compression'"
-                " ORDER BY COALESCE(last_activity_at, started_at) DESC LIMIT 1", (key,)).fetchone()
+    try:
+        with contextlib.closing(sqlite3.connect(f"file:{db}?mode=ro", uri=True)) as conn:
+            conn.row_factory = sqlite3.Row
+            row = conn.execute("SELECT id, chat_id, archived, pinned FROM sessions WHERE id = ?"
+                               " AND COALESCE(end_reason, '') <> 'compression'", (key,)).fetchone()
+            if row is None:
+                # A compression rotation mints a new row id; the chat id still names the live segment.
+                # The archived-away parent can itself carry the chat id as its row id, so it is skipped.
+                row = conn.execute(
+                    "SELECT id, chat_id, archived, pinned FROM sessions WHERE chat_id = ?"
+                    " AND COALESCE(end_reason, '') <> 'compression'"
+                    " ORDER BY COALESCE(last_activity_at, started_at) DESC LIMIT 1", (key,)).fetchone()
+    except sqlite3.Error as exc:
+        # A store from another Hermes version may lack a column this check reads; name the reason.
+        raise Blocked(f"Session store unreadable: {exc}") from None
     return dict(row) if row is not None else None
 
 
@@ -227,7 +231,7 @@ def self_test():
         store = home / "state.db"
         store.write_bytes(b"")
         gid = "local-" + "a" * 64
-        rotated = "20261106_232018_ab12cd"  # a compression child's row id
+        rotated = "20200101_000000_abcdef"  # a compression child's row id (synthetic)
         gateway = {"HERMES_SESSION_PLATFORM": "local", "HERMES_HOME": str(home),
                    "HERMES_SESSION_ID": gid}
         assert target(gateway)[:2] == ("webapp", gid) and target(gateway)[3] == home

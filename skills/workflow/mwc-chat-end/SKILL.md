@@ -136,4 +136,5 @@ python3 "$SKILL_DIR/scripts/session_archive.py" self-test
 
 - 宿主：Hermes WebUI（命名 profile 模式）与官方 WebApp / 桌面端（网关承载）。环境变量 `HERMES_SESSION_PLATFORM`、`HERMES_SESSION_ID`、`HERMES_UI_SESSION_ID`、`HERMES_HOME`、`HERMES_WEBUI_PORT` 由宿主提供，WebUI 密码登录另需宿主已提供的 `HERMES_WEBUI_PASSWORD`；脚本不读浏览器会话库、不读密码文件。
 - 运行时依赖：仅 Python 标准库，无第三方包；WebApp 侧另需 `hermes` CLI 在 PATH 上，找不到即拒绝。WebUI 连接只走 loopback、禁止重定向与环境代理。
+- 平台边界：以上实测都在 Linux/WSL（Python 3.14.9）。Windows 原生宿主未适配也未验证——`state.db` 的 `file:` URI 按 POSIX 路径拼接，`hermes` 若解析为 `.cmd` 无法被 `subprocess` 直接执行，示例命令用的是 `python3`。
 - 首次运行验证：`python3 <SKILL_DIR>/scripts/session_archive.py self-test`，输出 `PASS`（Python 3.14.9）。WebApp 侧另实测：`check` 读出 `platform=webapp`、`archived=false`；`hermes sessions archive --chat-id … --include-open --yes` 对已结束会话和从未结束的会话都归档成功并读回 `archived=1`；对正在运行的会话做过归档 → 读回 → 恢复往返。压缩轮换后（agent id 为 `<时间戳>_<hex>`、chat id 仍为原 `local-*`）的回退路径只由自检覆盖，未在真实压缩过的 WebApp 会话上验证。WebUI 分支只用注入的假 API 自检，真实 WebUI 归档、其它 Hermes 版本与 SSO-only 环境**未验证**；缺 `HERMES_UI_SESSION_ID`、平台不支持或 SSO-only 时按正文停止脚本路径，改由用户手动归档。
