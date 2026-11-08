@@ -29,17 +29,19 @@ bbt-agent-toolkit/
 | `assurance` | `test-case-design` |
 | `engineering` | `context-prefix-slimming`、`git-worktree-ops` |
 | `knowledge` | `decision-matrix` |
+| `prompt-opt` | `prompt-denoise` |
 | `workflow` | `chinese-documentation`、`harness-neutral-agent-prompts`、`mwc-bro`、`mwc-chat-end`、`mwc-in-your-own-words`、`mwc-ketchup`、`mwc-recall`、`mwc-sharpen`、`mwc-teach` |
 
 分类仅用于导航，不改变 skill 名称；`mwc-*` 直接放在 `workflow/` 下，不额外增加族目录。
 
-目录按实际内容创建；上图是结构约定，不表示所有能力已交付。组件专属的参考资料、脚本、模板和测试随组件保存，不在根目录重复归档；只有跨组件验证才放根 `tests/`。已收录 16 个 skill（见上表）；部分资产许可待定，不代表可公开发布。下列验证状态只记录实际执行过的检查，未列出的检查均未执行；未建立统一验证命令或 CI。
+目录按实际内容创建；上图是结构约定，不表示所有能力已交付。组件专属的参考资料、脚本、模板和测试随组件保存，不在根目录重复归档；只有跨组件验证才放根 `tests/`。已收录 17 个 skill（见上表）；部分资产许可待定，不代表可公开发布。下列验证状态只记录实际执行过的检查，未列出的检查均未执行；未建立统一验证命令或 CI。
 
 - `clean-code`：`scripts/check_examples.py` 在 WSL2（g++ 15.2.0、Python 3.14.9）实跑通过（3 个 C++17 示例与本地链接检查，退出码 0）；未在其他平台验证。
 - `coding-format`：`scripts/validate.py` 未运行。
 - `coding-documentation`：`scripts/validate.py` 未运行。
 - `decision-matrix`：`scripts/check_fixtures.py` 未运行。
 - `git-worktree-ops`：无可执行入口；`.gitignore` 尾斜杠与同分支多 worktree 两条行为断言在临时仓中实测，未执行 push 与 `gh pr create`。
+- `prompt-denoise`：`tests/` 离线单元测试 11 项通过（Python 3.14.9、3.11）；`scripts/extract_inventory.py` 在两份真实提示词上实跑（一份 241 句；一份带 `--follow` 共 10 个文件、2162 句，触发清单过大提示）。完整流程在 Hermes 中对一份 241 句的角色提示词实跑一次：三路子代理并行产出 39 条发现，`--verify` 查出 1 条编号错误，合并为 26 处建议；未做改前改后的行为对比。未在 macOS、Windows 或 Python 3.10、3.12、3.13 上实测。
 - `mwc-chat-end`：`scripts/session_archive.py self-test` 实跑通过（Python 3.14.9）；WebApp 侧 `check` 在真实会话上运行，`hermes sessions archive` 的 `--include-open` 归档在一次性会话上实测并读回，当前会话做过归档→读回→恢复往返；压缩轮换后的回退路径与 WebUI 分支只有自检覆盖，真实 WebUI `check` / `archive` 未运行。
 - 无可执行入口的提示词类 skill（`chinese-documentation`、`context-prefix-slimming`、`harness-neutral-agent-prompts`、`mwc-bro`、`mwc-in-your-own-words`、`mwc-ketchup`、`mwc-recall`、`mwc-sharpen`、`mwc-teach`、`test-case-design`）：只做了 frontmatter 与相对链接检查，提示词效果未在宿主中实测。
 - [mm-disclosure 插件](plugins/hermes-agent/mm-disclosure/README.md)：离线单元测试 15 项通过；`hermes plugins doctor --ci` 通过（0.3.0，3 个 hook）。未验证宿主实际加载与新会话首轮注入，未对真实 Hindsight 服务端做端到端测试。
