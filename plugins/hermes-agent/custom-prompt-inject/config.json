@@ -1,0 +1,28 @@
+{
+  "max_chars": 2000,
+  "rules": [
+    {
+      "id": "subagent-common",
+      "prompt": "prompts/family/subagent-prompt-common.md",
+      "inject_into": [
+        "system_prompt",
+        "user_context"
+      ],
+      "when": {
+        "subagent": true
+      }
+    },
+    {
+      "id": "openai-main",
+      "prompt": "prompts/family/openai.md",
+      "inject_into": [
+        "system_prompt",
+        "user_context"
+      ],
+      "when": {
+        "subagent": false,
+        "model_regex": "(?:^|/)(?:gpt|codex)(?:-|/|$)"
+      }
+    }
+  ]
+}

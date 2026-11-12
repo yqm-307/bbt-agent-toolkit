@@ -1,4 +1,0 @@
-name: model-guidance
-version: 0.1.0
-description: 按模型族 + 模式（long/daily/off）注入执行指引；新会话走 system prompt section，中途切模型/模式由 pre_llm_call 补注入一次。
-provides_hooks: [pre_llm_call]

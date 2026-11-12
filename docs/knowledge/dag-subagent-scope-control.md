@@ -21,7 +21,7 @@ HERMES_HOME=<profile-home> python3 tools/dag-scope-audit/dag_scope_audit.py --da
 1. **派发协议只有意图，没有权限。** `SCOPE`、`VERIFY`、`STOP WHEN` 是自由文本；`write_scope` 只在定义期查并发重叠，没有传给子代理；`STOP WHEN` 运行时没有判定。
 2. **定义期校验只拦最空的情况。** `require_prompt_markers` 只在"五段标记一个都没有"时拒绝节点，缺几段只是 lint 建议（`dag_run.py` 注释原文 "never rejects a run"）。VERIFY 有没有命令、STOP WHEN 能不能判定，没人检查。
 3. **子代理继承父会话全部工具。** Hermes 子代理 `skip_context_files=True`，工具集不按节点收窄。宿主 prompt 里有 "Keep working until you have actually exercised the code" 这类推动执行的句子，任务书沉默处容易按默认走。
-4. **提示词载体按模型名分流会漏人。** `model-guidance` 的 `worker.md` 按模型名命中 `gpt-*`/`codex`/`deepseek`，其余模型家族的节点拿不到对应条款。
+4. **提示词载体按模型名分流会漏人。** 旧版提示词注入插件的子代理条款受模型映射限制；当前 `custom-prompt-inject` 以 JSON 条件规则选择提示词，`subagent-prompt-common.md` 独立于模型映射，统一用于宿主标识为子代理的会话。实际送达与效果仍需在目标宿主验证。
 
 ## 3. 已实现措施：`omh-dag-boundary` 插件
 
@@ -72,4 +72,4 @@ HERMES_HOME=<profile-home> python3 tools/dag-scope-audit/dag_scope_audit.py --da
 
 - [`plugins/hermes-agent/omh-dag-boundary/`](../../plugins/hermes-agent/omh-dag-boundary/README.md) — 插件与单测（13 项）。
 - [`tools/dag-scope-audit/`](../../tools/dag-scope-audit/README.md) 的 [`dag_scope_audit.py`](../../tools/dag-scope-audit/dag_scope_audit.py)、[`test_dag_scope_audit.py`](../../tools/dag-scope-audit/test_dag_scope_audit.py) — 只读审计与回归（23 项）。
-- [`plugins/hermes-agent/model-guidance/prompts/family/worker.md`](../../plugins/hermes-agent/model-guidance/prompts/family/worker.md) — 子代理执行纪律（按派发说明与节点角色决定测试/构建）。
+- [`plugins/hermes-agent/custom-prompt-inject/prompts/family/subagent-prompt-common.md`](../../plugins/hermes-agent/custom-prompt-inject/prompts/family/subagent-prompt-common.md) — 全模型共用的子代理执行纪律（按派发说明与节点角色决定测试/构建）。

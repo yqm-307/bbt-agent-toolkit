@@ -45,7 +45,7 @@ bbt-agent-toolkit/
 - `mwc-chat-end`：`scripts/session_archive.py self-test` 实跑通过（Python 3.14.9）；WebApp 侧 `check` 在真实会话上运行，`hermes sessions archive` 的 `--include-open` 归档在一次性会话上实测并读回，当前会话做过归档→读回→恢复往返；压缩轮换后的回退路径与 WebUI 分支只有自检覆盖，真实 WebUI `check` / `archive` 未运行。
 - 无可执行入口的提示词类 skill（`chinese-documentation`、`context-prefix-slimming`、`harness-neutral-agent-prompts`、`mwc-bro`、`mwc-in-your-own-words`、`mwc-ketchup`、`mwc-recall`、`mwc-sharpen`、`mwc-teach`、`test-case-design`）：只做了 frontmatter 与相对链接检查，提示词效果未在宿主中实测。
 - [mm-disclosure 插件](plugins/hermes-agent/mm-disclosure/README.md)：离线单元测试 15 项通过；`hermes plugins doctor --ci` 通过（0.3.0，3 个 hook）。未验证宿主实际加载与新会话首轮注入，未对真实 Hindsight 服务端做端到端测试。
-- [model-guidance 插件](plugins/hermes-agent/model-guidance/README.md)：离线单元测试 27 项通过；`hermes plugins doctor --ci` 通过（0.1.0，1 个 hook）。未验证宿主实际加载与会话级 `/guide` 端到端。
+- [custom-prompt-inject 插件](plugins/hermes-agent/custom-prompt-inject/README.md)：按 JSON 条件把自定义提示词注入 system prompt 或 user context；本地离线测试结果以组件 README 为准，未验证宿主实际加载与 WebUI/CLI/gateway 端到端送达。
 - [omh-dag-boundary 插件](plugins/hermes-agent/omh-dag-boundary/README.md)：离线单元测试 13 项通过。未验证宿主 `pre_tool_call` 改写行为、真实 OMH 派发链路与宿主版本兼容性。
 - [prompt-health 工具](tools/prompt-health/README.md)：本次迁移未改动、未重新运行检查，因此此处不给出验证结论。
 - [dag-scope-audit 工具](tools/dag-scope-audit/README.md)：离线单元测试 23 项通过；`--help` 正常退出，`--db` 指向不存在的文件时报错并退出 2。未在真实会话库或真实 OMH 运行记录上执行；未在 macOS、Windows 或 Python 3.10–3.13 上实测。
