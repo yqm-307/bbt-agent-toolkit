@@ -1,0 +1,45 @@
+loop cpu_optimize {
+  goal "降低 CPU 消耗";
+  invariant "功能正确，延迟不超过基线";
+  entry research, experiment;
+  exit when target_met;
+  block when no_signal or budget_exhausted;
+
+  node research [kind=discover, run=parallel] {
+    does "持续从 profile、trace、issue 和文档寻找可验证的 CPU 假设";
+    reads profile, traces, prior_results;
+    emits hypotheses, research_notes;
+  }
+
+  node experiment [kind=experiment, run=parallel] {
+    does "在固定基线和预算内测试候选优化";
+    reads hypotheses, benchmark_baseline;
+    emits benchmark, candidate_results;
+  }
+
+  node evaluate [kind=judge, run=parallel] {
+    does "持续比较研究结论、实验结果和基线";
+    reads hypotheses, benchmark, research_notes;
+    emits decision, next_candidates;
+    exit when target_met;
+    block when no_signal or budget_exhausted;
+  }
+
+  node feedback [kind=observe, run=gate] {
+    does "汇合各路结果，裁剪无证据或超预算的候选";
+    reads hypotheses, benchmark, decision;
+    emits feedback, next_candidates;
+    exit when target_met;
+    block when no_signal or budget_exhausted;
+  }
+
+  join feedback <- research, experiment, evaluate;
+  edge research -> evaluate when new_research;
+  edge experiment -> evaluate when benchmark_ready;
+  edge research -> feedback when research_updated;
+  edge experiment -> feedback when benchmark_updated;
+  edge evaluate -> feedback when evaluation_updated;
+  edge feedback -> research when new_hypothesis;
+  edge feedback -> experiment when candidate_to_test;
+  edge feedback -> evaluate when needs_recheck;
+}
