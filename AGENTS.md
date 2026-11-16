@@ -2,7 +2,7 @@
 
 <!-- omh:agent-instructions:begin -->
 
-本文件是人类贡献者与 Agent 共用的协作规则真源。README 负责导航，组件说明负责操作，不复制本文件；不增加宿主专属规则副本，不包含个人角色正文或私有环境信息。
+本文件是人类贡献者与 Agent 共用的协作规则真源。README 负责导航，组件说明负责操作，不复制本文件；不增加宿主专属规则副本，不包含个人角色正文（个人助手画像与偏好）或私有环境信息。
 
 ## 1. 验证与交付
 
@@ -16,6 +16,8 @@
 
 - `skills/<domain>/<skill-name>/`：按能力域分类，尽量沿用已有分类，如 `coding-style`、`assurance`、`engineering`、`knowledge`、`prompt-opt`、`workflow`。每个 skill 目录名与 SKILL.md frontmatter 的 `name` 一致且仓内唯一；分类不改变名称，不按个人、部署环境或宿主分组，也不增加第三层族目录。`description` 以自含的 `Use when ...` 触发描述开头；方法正文使用中文，命令、标识符及必要术语保留原文。
 - Skill 主文负责触发、输入、方法、输出、边界；专属资料放 `references/`，程序放 `scripts/`，模板放 `templates/`，素材放 `assets/`，验证案例按需放 `tests/` 或 `evals/`。不为了结构齐全创建空目录。
+- `agents/<role>/`：可在任意项目复用的协作身份（如设计、开发、测试、审查），`AGENTS.md` 为唯一正文，frontmatter `name` 与目录名一致且仓内唯一；引用资料放 `references/`，所需工具、配置模板与脚本放 `resources/`。每个身份目录自包含：只引用本目录内的文件，不链接仓库其他目录，不绑定具体项目；只写角色方法，一份方法只属于一个身份，语言规范与审美不进身份目录，身份正文写「按目标仓声明采用的规范」。身份正文只写职责、判断与边界，不写个人画像、用户偏好、模型选择或宿主接线；宿主接线由使用者在本地完成，见 `agents/README.md`。
+- `standards/<lang>/`：与项目无关的通用编码规范与审美，`general/` 放语言无关部分，其余按语言分目录；一条规则只留一个完整正文，内部只用相对链接，不链接 `agents/`、`skills/`。项目特有取值（命名值、宏、目录、工具版本等）不进本目录，由项目自己的规范覆盖或补充。说明见 `standards/README.md`。
 - `plugins/<host>/<name>/`：插件源码及其 README、清单、资源与测试；宿主名使用稳定的项目名称，不用端口、个人名或部署环境分组。
 - `tools/<tool-name>/`：独立工具及其说明与测试；不因脚本是 Python 或 Shell 就拆到第二份全局脚本目录。
 - `docs/guides/`、`docs/knowledge/`、`docs/decisions/`：仅承载跨组件内容。组件本身的文档与测试随组件保存；跨组件测试按需放根 `tests/`。

@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def check_structure():
     required = [
         'SKILL.md',
-        'references/cpp.md',
+        '../../../standards/cpp/documentation.md',
         'references/export.md',
         'references/diagrams.md',
         'templates/Doxyfile.in',

@@ -1,6 +1,6 @@
 # 通用执行流程与配置
 
-本文件是 `coding-format` 的执行细则：各语言共用的 format/check 分流、执行顺序、配置与安装边界、输出与停止条件。语言专属工具、命令、退出码和安装渠道见 `cpp.md`、`python.md`、`golang.md`。
+本文件是 `coding-format` 的执行细则：各语言共用的 format/check 分流、执行顺序、配置与安装边界、输出与停止条件。语言专属工具、命令、退出码和安装渠道见 [C++](../../../../standards/cpp/format.md)、[Python](../../../../standards/python/format.md)、[Go](../../../../standards/go/format.md)。
 
 ## format：生成格式化结果
 
@@ -26,7 +26,7 @@
 
 ## 配置与安装
 
-- C++ 候选配置：[templates/clang-format.yaml](../templates/clang-format.yaml)；Python 候选配置：[templates/ruff.toml](../templates/ruff.toml)；Go 使用 `gofmt` 内建规则，不创建伪配置。
+- C++ 候选配置：[templates/clang-format.yaml](../../../../standards/cpp/clang-format.yaml)；Python 候选配置：[templates/ruff.toml](../../../../standards/python/ruff.toml)；Go 使用 `gofmt` 内建规则，不创建伪配置。
 - 候选配置只在目标仓没有既有配置时试用。目标仓的 `.clang-format`、`ruff.toml`/`pyproject.toml`、项目 formatter 或 CI 配置始终优先；本 skill 的用户偏好（含 C++ 函数大括号换行）不覆盖仓规，也不作为现有仓库的门禁。
 - 安装依赖须由目标仓/环境授权；本 skill 不自动安装、不隐式联网、不把二进制提交进仓库。工具版本应固定或由仓库锁文件/镜像提供。
 - 二进制路径可来自 PATH、编辑器扩展、项目工具目录或显式参数；按语言 reference 核实际版本（Go 的 gofmt 没有 `--version`），把来源与版本写入验证结果。

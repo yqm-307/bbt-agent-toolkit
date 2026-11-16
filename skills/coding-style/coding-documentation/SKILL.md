@@ -26,36 +26,9 @@ related_skills: [clean-code]
 - Graphviz 负责工具能推导的关系图；Mermaid/PlantUML 负责作者明确维护的状态图、时序图、架构图。Doxygen 不会从业务代码可靠推导业务状态机。
 - 目标仓已有 Doxyfile、主题版本、文档站或 CI 时优先沿用；模板仅用于无既有配置的候选试验。
 
-## 公共函数注释格式
+## 注释规范入口
 
-声明附近至少写清调用者需要知道的行为；不要为每个函数机械补空标签：
-
-```cpp
-/**
- * @brief 注册服务。
- *
- * 校验服务配置和注册窗口；失败时不登记半成品。
- *
- * @tparam T 继承 ICoService 且可默认构造的服务类型。
- * @param options 服务配置，必须显式指定执行策略。
- * @return 成功返回 ok；配置无效返回 InvalidArgument，
- *         注册窗口关闭返回 Closed。
- */
-template <class T>
-result<void> add_service(ServiceOptions options);
-```
-
-上例只演示注释结构；应用到真实函数前核实参数约束、错误集合与生命周期保证，不把示例内容直接当作项目契约。
-
-使用规则：
-
-- `@brief` 写一句可扫描的结果，不写实现过程；需要展开时用空行后的正文。
-- 模板参数用 `@tparam`，参数用 `@param`；输出参数标为 `@param[out]`，输入输出标为 `@param[in,out]`。
-- 返回值用 `@return`；异常契约只有项目确实允许并且调用者需要时写 `@throws`/`@exception`。
-- 前置条件用 `@pre`，后置条件用 `@post`；线程安全、生命周期和关闭顺序用 `@par` 明确写出，不杜撰工具无法知道的保证。
-- `@note` 写重要使用约束，`@warning` 写可能导致误用或数据损失的风险；废弃接口必须带替代路径，具体标签见 C++ reference。
-- 公共类型、枚举值、回调和资源句柄按同一原则写；私有辅助函数只在理解算法或安全边界确有收益时写。
-- 业务语义优先中文；标识符、命令、错误码、协议字段保留原文。跨语言开源 API 另按项目语言策略，不把中文模板强加给外部消费者。
+先读 [通用文档与注释](../../../standards/general/documentation.md)；C/C++ 标签、完整注释示例与解析边界见 [C++ 文档](../../../standards/cpp/documentation.md)。核实真实接口契约后再写，不猜保证，不机械补空标签。
 
 ## 导出流程
 
@@ -65,7 +38,7 @@ result<void> add_service(ServiceOptions options);
 4. HTML 输出确认后再接入仓库文档入口或 CI；生成目录放 `build/` 等忽略路径，不把生成站点复制回源码树。
 5. 主题只改 CSS/页面布局，不用 CSS 掩盖缺失、错误或过时的 API 注释。
 
-分支资料：写 C/C++ 注释先读[references/cpp.md](references/cpp.md)；安装、锁版本与主题导出先读[references/export.md](references/export.md)；开启图表时读[references/diagrams.md](references/diagrams.md)。
+分支资料：写 C/C++ 注释先读[../../../standards/cpp/documentation.md](../../../standards/cpp/documentation.md)；安装、锁版本与主题导出先读[references/export.md](references/export.md)；开启图表时读[references/diagrams.md](references/diagrams.md)。
 
 候选模板：[templates/Doxyfile.in](templates/Doxyfile.in)。全部六个占位符 `@PROJECT_NAME@`、`@PROJECT_VERSION@`、`@PROJECT_SOURCE_DIR@`、`@PROJECT_BINARY_DIR@`、`@DOC_INPUT_DIR@`、`@DOXYGEN_AWESOME_DIR@` 须经 CMake `configure_file` 或等价替换生成实际 Doxyfile；确认无残余变量后再交给 Doxygen。
 

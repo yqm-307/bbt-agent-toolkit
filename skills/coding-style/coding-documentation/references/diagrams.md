@@ -39,9 +39,9 @@ Mermaid 源文件是设计表达，不由 Doxygen 从 C++ 自动生成。站点�
 ```plantuml
 @startuml
 actor Client
-Client -> CoApp : request_shutdown()
-CoApp -> Resource : Close()
-Resource --> CoApp : closed
+Client -> Application : request_shutdown()
+Application -> Resource : close()
+Resource --> Application : closed
 @enduml
 ```
 

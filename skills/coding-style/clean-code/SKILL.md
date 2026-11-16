@@ -5,14 +5,13 @@ related_skills: []
 ---
 # Clean Code：显式机制，克制抽象
 
-职责做窄，语义做实；机制显式，封装克制；复用优先，升级有据。降低总理解与修改成本，不追求最少行数、零注释或最多复用。通用原则与 C++ 写法共用本入口，语言细节按需加载。
+用于编写、审查或重构代码的按需入口；规范正文在 [standards](../../../standards/README.md)，本页只保留操作方法。
 
 ## 输入与边界
 
 输入：目标、授权范围、目标代码与必要调用方、既有契约、语言及构建约束。先读真实调用关系，缺关键事实先查证，无法取得则说明限制，不猜测实现。
 
-- 目标仓契约、语言标准与已有工具配置优先；审查只给建议，不自动修改。不能为审美改变公共 API、错误集合、副作用次数与顺序、条件求值、资源寿命或安全检查。
-- 不把某仓的调度时序、错误码、线程数、停机协议或构建开关写成通用要求；不向其他语言套 C++ 命名和资源实现。
+- 适用优先级、行为保持与不可省的边界见 [代码品位](../../../standards/general/code-taste.md)；目标仓规则优先，审查不自动修改。
 - 纯文档排版、单纯性能测量不触发；性能重构或架构取舍中的局部代码设计可参考本入口，但不接管完整架构选型、审查门禁、生产操作或测试流程。
 
 ## 最小流程
@@ -26,16 +25,16 @@ related_skills: []
 
 | 命中场景 | 读取材料 |
 |---|---|
-| 职责过宽、重复、接口/工厂/策略层是否值得 | [职责与抽象](references/design-principles.md) |
-| 命名、单位、调用点、函数边界或注释 | [表达准则](references/principles.md)，需要对照再读[通用正反例](references/examples.md) |
-| C++ 编写、审查或重构 | **先读** [C++ 默认写法](references/cpp-style.md)；命名/格式细节见[命名与文件](references/naming-and-files.md) |
-| C++ 工厂、复制/移动、参数、资源、回调或错误 | [所有权与生命周期](references/ownership-and-lifetime.md) |
-| C++ 共享状态、锁、等待、线程局部或静态对象 | [并发与异步](references/concurrency-and-coroutines.md) |
-| C++ 头文件、模板、特性或构建兼容 | [头文件与构建](references/headers-and-build.md) |
-| C++ 算法、捕获、RAII、枚举需要可运行对照 | [C++ 实现示例](references/readability-examples.md) |
-| 核对 Google 采纳边界或维护规范 | [来源与审查条件](references/google-adopt.md) |
-| "最简方案""够用为止"或克制过度建设 | [最小变更与克制建设](references/minimal-change.md) |
-| 数据表示、模块边界、接口契约、失败与错误、演进与删除、可读性取舍等不分语言的设计判断 | [设计品味总纲](references/taste/00-overview.md)，按其导读再读对应一篇 |
+| 职责过宽、重复、接口/工厂/策略层是否值得 | [职责与抽象](../../../standards/general/code-taste.md) |
+| 命名、单位、调用点、函数边界或注释 | [命名](../../../standards/general/naming.md)与[注释](../../../standards/general/documentation.md)，需要对照再读[通用正反例](../../../standards/cpp/examples/examples.md) |
+| C++ 编写、审查或重构 | **先读** [C++ 默认写法](../../../standards/cpp/style.md)；命名/格式细节见[命名与文件](../../../standards/general/naming.md) |
+| C++ 工厂、复制/移动、参数、资源、回调或错误 | [所有权与生命周期](../../../standards/cpp/style.md) |
+| C++ 共享状态、锁、等待、线程局部或静态对象 | [并发与异步](../../../standards/general/ownership-and-concurrency.md) |
+| C++ 头文件、模板、特性或构建兼容 | [头文件与构建](../../../standards/cpp/style.md) |
+| C++ 算法、捕获、RAII、枚举需要可运行对照 | [C++ 实现示例](../../../standards/cpp/examples/readability-examples.md) |
+| 核对 Google 采纳边界或维护规范 | [来源与审查条件](../../../standards/cpp/style.md) |
+| "最简方案""够用为止"或克制过度建设 | [最小变更与克制建设](../../../standards/general/code-taste.md) |
+| 数据表示、模块边界、接口契约、失败与错误、演进与删除、可读性取舍等不分语言的设计判断 | [设计品味总纲](../../../standards/general/taste/00-overview.md)，按其导读再读对应一篇 |
 
 ## 输出与完成
 
@@ -43,9 +42,6 @@ related_skills: []
 
 完成前确认：名字匹配行为，职责与控制流清楚，错误/资源/异步边界可靠，必要注释保留，验证覆盖声明。伪代码不编译，教学样例通过也不证明真实系统并发与性能。
 
-## 迁移适配说明
+## 工具
 
-- 纯阅读无需编译工具。辅助入口 `scripts/check_examples.py` 需 Python 3.6+ 与支持 C++17、`-pthread` 的 g++；脚本通过 PATH 查找名为 `g++` 的程序，其他编译器存在不代表满足前提，并须允许在临时目录（可通过 `TMPDIR` 指定）编译和执行产物。
-- 首次先核 `python3 --version`、`command -v g++`、`g++ --version`。Python 获取入口：https://www.python.org/downloads/ ；GCC 获取入口：https://gcc.gnu.org/install/binaries.html 。Debian/Ubuntu 可在获得安装和提权授权后使用 `sudo apt-get install python3 g++`；其他平台按发行方式准备，不自动安装。安装命令本次未执行；版本核对已在本机执行（见下条）。
-- 文中 `python3 skills/coding-style/clean-code/scripts/...` 命令从本工具箱仓库根执行；放在别处时改为实际路径。
-- 既有验证入口随包保留。2026-11-05 在 WSL2（`Linux 6.18.33.2-microsoft-standard-WSL2`，Ubuntu 版 g++ 15.2.0 / Python 3.14.9）以 `python3 -I skills/coding-style/clean-code/scripts/check_examples.py` 实跑：3 个 C++17 示例编译并断言通过，本地链接检查通过，退出码 0。新机器与新平台可用性仍未验证。
+可选示例检查：从工具箱根运行 `python3 -I standards/cpp/examples/check_examples.py`。需 Python 3.6+、PATH 中的 g++（C++17、`-pthread`）和允许编译/执行的临时目录（尊重 `TMPDIR`）；缺依赖报告阻塞，不自动安装。纯阅读不需要编译工具。依赖获取渠道：Python https://www.python.org/downloads/ ，GCC https://gcc.gnu.org/install/binaries.html 。安装、提权或联网须另获授权。

@@ -18,12 +18,12 @@ def structure():
         ROOT / name
         for name in (
             "SKILL.md",
-            "references/cpp.md",
-            "references/python.md",
-            "references/golang.md",
+            "../../../standards/cpp/format.md",
+            "../../../standards/python/format.md",
+            "../../../standards/go/format.md",
             "references/workflow.md",
-            "templates/clang-format.yaml",
-            "templates/ruff.toml",
+            "../../../standards/cpp/clang-format.yaml",
+            "../../../standards/python/ruff.toml",
         )
     ]
     for path in paths:
@@ -42,10 +42,10 @@ def structure():
             target = (doc.parent / link.split("#")[0]).resolve()
             if not target.is_file():
                 raise ValueError(f"Broken link: {doc.relative_to(ROOT)} -> {link}")
-    config = tomllib.loads((ROOT / "templates/ruff.toml").read_text())
+    config = tomllib.loads((ROOT / "../../../standards/python/ruff.toml").read_text())
     if config.get("line-length") != 88:
         raise ValueError("Python candidate must not inherit C++ line width")
-    cpp = (ROOT / "templates/clang-format.yaml").read_text()
+    cpp = (ROOT / "../../../standards/cpp/clang-format.yaml").read_text()
     for expected in (
         "IndentWidth: 4",
         "ColumnLimit: 120",
@@ -156,7 +156,7 @@ def probe(language, binary):
             source = directory / "sample.cc"
             original = b"void F(){int x=1;Use(x);}\n"
             source.write_bytes(original)
-            config = ROOT / "templates/clang-format.yaml"
+            config = ROOT / "../../../standards/cpp/clang-format.yaml"
             prefix = [
                 binary,
                 f"--style=file:{config}",
@@ -233,7 +233,7 @@ def probe(language, binary):
             source = directory / "sample.py"
             original = b'def f( x ) :\n return { "value" :x }\n'
             source.write_bytes(original)
-            prefix = [binary, "format", "--config", ROOT / "templates/ruff.toml"]
+            prefix = [binary, "format", "--config", ROOT / "../../../standards/python/ruff.toml"]
             version = run([binary, "--version"], trace)
             require(version.returncode == 0, "Cannot read Ruff version")
             check = lambda: run(prefix + ["--check", source], trace)

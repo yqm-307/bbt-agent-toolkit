@@ -18,17 +18,17 @@ related_skills: [clean-code]
 
 | 语言 | 参考 | 默认工具路径 |
 |---|---|---|
-| C/C++ | [references/cpp.md](references/cpp.md) | `clang-format` |
-| Python | [references/python.md](references/python.md) | `ruff format`；仓库已有 Black 时跟仓库 |
-| Go | [references/golang.md](references/golang.md) | `gofmt` |
+| C/C++ | [../../../standards/cpp/format.md](../../../standards/cpp/format.md) | `clang-format` |
+| Python | [../../../standards/python/format.md](../../../standards/python/format.md) | `ruff format`；仓库已有 Black 时跟仓库 |
+| Go | [../../../standards/go/format.md](../../../standards/go/format.md) | `gofmt` |
 
 不在表内的语言先查目标仓工具；不要把 C++ 120 列、Python 88 列或 Go 规则套到其他语言。
 
 ## 读取顺序
 
 1. 执行顺序、配置与安装、输出与停止判据：[references/workflow.md](references/workflow.md)。
-2. 语言工具、命令、退出码与安装：[references/cpp.md](references/cpp.md)、[references/python.md](references/python.md)、[references/golang.md](references/golang.md)。
-3. 候选配置：[templates/clang-format.yaml](templates/clang-format.yaml)、[templates/ruff.toml](templates/ruff.toml)。
+2. 语言工具、命令、退出码与安装：[../../../standards/cpp/format.md](../../../standards/cpp/format.md)、[../../../standards/python/format.md](../../../standards/python/format.md)、[../../../standards/go/format.md](../../../standards/go/format.md)。
+3. 候选配置：[../../../standards/cpp/clang-format.yaml](../../../standards/cpp/clang-format.yaml)、[../../../standards/python/ruff.toml](../../../standards/python/ruff.toml)。
 
 ## 边界
 
