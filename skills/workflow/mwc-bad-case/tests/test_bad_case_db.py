@@ -99,6 +99,26 @@ class BadCaseCliTests(unittest.TestCase):
         history = json.loads(self.run_cli("show", case_id, "--history").stdout)["history"]
         self.assertEqual([event["event_type"] for event in history], ["create", "update", "delete", "restore"])
 
+    def test_default_list_only_shows_active_cases(self) -> None:
+        statuses = ("open", "reviewing", "resolved", "ignored", "deleted")
+        for status in statuses:
+            self.run_cli("record", "--title", status, "--status", status)
+
+        def listed(*args: str) -> set[str]:
+            records = json.loads(self.run_cli("list", *args, "--format", "json").stdout)
+            return {record["status"] for record in records}
+
+        self.assertEqual(listed(), {"open", "reviewing"})
+        self.assertEqual(listed("--status", "all"), set(statuses) - {"deleted"})
+        self.assertEqual(listed("--include-deleted"), set(statuses))
+        self.assertEqual(listed("--status", "all", "--include-deleted"), set(statuses))
+        for status in statuses[:-1]:
+            self.assertEqual(listed("--status", status), {status})
+        self.assertEqual(listed("--status", "deleted"), set())
+        self.assertEqual(listed("--status", "deleted", "--include-deleted"), {"deleted"})
+        self.assertEqual(listed("--query", "ignored"), set())
+        self.assertEqual(listed("--status", "all", "--query", "ignored"), {"ignored"})
+
     def test_invalid_payload_fails_without_creating_record(self) -> None:
         result = self.run_cli("record", "--title", "", check=False)
         self.assertNotEqual(result.returncode, 0)
