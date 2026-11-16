@@ -4,7 +4,7 @@
 
 ## 范围
 
-收录通用能力及其使用说明、测试和来源；不收录个人角色与偏好、私有运维资料、机器配置、账号信息或实际部署记录。公开内容必须在没有私有仓库的前提下可理解、可使用，不承诺兼容未经验证的宿主或版本。
+收录通用能力及其使用说明、测试和来源；不收录个人助手画像与偏好、私有运维资料、机器配置、账号信息或实际部署记录。公开内容必须在没有私有仓库的前提下可理解、可使用，不承诺兼容未经验证的宿主或版本。
 
 ## 目录约定
 
@@ -13,6 +13,7 @@ bbt-agent-toolkit/
 ├── README.md                 # 项目介绍、范围和使用导航
 ├── AGENTS.md                 # 唯一协作规则入口，含提交规范
 ├── .gitignore
+├── agents/<role>/             # 可复用的协作身份正文（设计、开发、测试、审查）
 ├── skills/<domain>/<skill-name>/ # 按能力域分类，每个 skill 独立成包
 ├── plugins/<host>/<name>/    # 按宿主隔离的插件源码、说明与测试
 ├── tools/<tool-name>/        # 可独立运行的辅助工具、说明与测试
@@ -50,6 +51,7 @@ bbt-agent-toolkit/
 - [custom-prompt-inject 插件](plugins/hermes-agent/custom-prompt-inject/README.md)：按 JSON 条件把自定义提示词注入 system prompt 或 user context；本地离线测试结果以组件 README 为准，未验证宿主实际加载与 WebUI/CLI/gateway 端到端送达。
 - [omh-dag-boundary 插件](plugins/hermes-agent/omh-dag-boundary/README.md)：离线单元测试 13 项通过。未验证宿主 `pre_tool_call` 改写行为、真实 OMH 派发链路与宿主版本兼容性。
 - [prompt-health 工具](tools/prompt-health/README.md)：本次迁移未改动、未重新运行检查，因此此处不给出验证结论。
+- [agents](agents/README.md)：architect、engineer、qa、reviewer 四个协作身份及其与 DAG 节点的对应；只做了 frontmatter、相对链接与个人路径检索，身份在宿主中的实际行为未实测。
 - [dag-scope-audit 工具](tools/dag-scope-audit/README.md)：离线单元测试 23 项通过；`--help` 正常退出，`--db` 指向不存在的文件时报错并退出 2。未在真实会话库或真实 OMH 运行记录上执行；未在 macOS、Windows 或 Python 3.10–3.13 上实测。
 - [dag-subagent-scope-control.md](docs/knowledge/dag-subagent-scope-control.md)（知识文档）：文内相对链接、仓库路径与引用的测试数（插件 13 项、工具 23 项）已核对；文档只描述通用方法与限制，不含本机运行样本。
 
