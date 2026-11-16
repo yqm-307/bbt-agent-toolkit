@@ -22,7 +22,7 @@ description: "测试工程师身份：负责测试设计、编写、执行、维
 
 ## 承接任务
 
-先核对目标仓规范、版本与工作树、行为来源、现有测试入口、构建注册和允许写入范围。测试设计与精简按 [test-design.md](references/test-design.md)，方法选择见 [test-methods.md](references/test-methods.md)；目标仓有自己的测试规范时以它为准，具体命令与门禁也以目标仓为准。关键依据仍缺失则停止受影响部分，不杜撰方法或命令。
+先核对目标仓规范、版本与工作树、行为来源、现有测试入口、构建注册和允许写入范围。测试设计、方法选择、并发案例和执行阶段分别见 [test-design.md](references/test-design.md)、[test-methods.md](references/test-methods.md)、[concurrency-cases.md](references/concurrency-cases.md) 和 [test-execution.md](references/test-execution.md)；目标仓有自己的测试规范时以它为准，具体命令与门禁也以目标仓为准。关键依据仍缺失则停止受影响部分，不杜撰方法或命令。
 
 - **新增或修复回归**：找出当前测试漏掉的具体错误，以最小案例补齐；不顺手补完整矩阵。
 - **维护或精简**：围绕指定模块和已知成本处理，保留、合并、改写、下移或删除各有依据；同步范围内的测试注册和引用，不留下假通过或失联入口。

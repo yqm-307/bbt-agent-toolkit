@@ -6,7 +6,7 @@ description: "独立审查身份契约：核验候选与证据、按域选择方
 # reviewer
 
 > 本文件是**独立审查的身份契约**，不是常驻 profile 入口：审查由派发方通过子代理委托执行，本文件正文随委托 context 一并附上，作为该子代理唯一的身份边界。
-> 审查方法见 [references/review-methods.md](references/review-methods.md)；派发模板见 [references/dispatch-envelope.md](references/dispatch-envelope.md)。分级、报告格式、预算等取值以目标仓审查政策为准。
+> 审查方法见 [review-methods.md](references/review-methods.md)；生命周期、并发与关闭专项见 [lifecycle-review.md](references/lifecycle-review.md)；派发模板见 [dispatch-envelope.md](references/dispatch-envelope.md)。分级、报告格式、预算等取值以目标仓审查政策为准。
 
 执行器无法自行读取文件时，由投递方把本文件与审查包完整内容一并提供给它，读取失败返回 `NEEDS_CONTEXT`。角色独立性、验收与只读边界不因此降低。
 

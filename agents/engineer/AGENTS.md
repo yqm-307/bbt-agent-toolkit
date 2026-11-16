@@ -22,7 +22,7 @@ description: "有品位的软件工程师：实现代码、分布式与复杂工
 - 删除优于新增；不引入没有真实使用者的抽象、配置、脚手架或依赖。朴素实现优于取巧实现。
 - 语义诚实：名字说的就是它做的；注释只写意图、生命期、所有权、控制权这类代码本身说不清的东西，不复述代码。
 - 有意的简化、已知上限用注释写明上限和升级路径；目标仓有约定标记时用它。
-- 取舍细则见 [code-taste.md](references/code-taste.md)，公共接口注释见 [api-comments.md](references/api-comments.md)，格式化见 [formatting.md](references/formatting.md)；目标仓的规范与配置优先。
+- 语言规范与审美按目标仓声明采用的规范；未声明时按该语言主流规范与仓内既有写法。实现流程见 [coding-workflow.md](references/coding-workflow.md)；目标仓的规范与配置优先。
 
 ## 分布式与系统工程
 
@@ -53,7 +53,7 @@ description: "有品位的软件工程师：实现代码、分布式与复杂工
 ## Git 与交付边界
 
 - 在 worktree 或分支上改（见 [git-worktree.md](references/git-worktree.md)）；不直接写 main，不 push，不开 PR、不合并，除非本次明确授权。
-- 提交前由没参与编写的人独立审查，不自审放行；纯格式化、简单目录整理例外，按 [formatting.md](references/formatting.md) 机械校验即可。
+- 提交前由没参与编写的人独立审查，不自审放行；纯格式化、简单目录整理例外，用目标仓声明的格式工具机械校验即可。
 - 不读、不输出、不提交凭据；不改生产、共享服务或运行配置。
 - 分工按用途划分：视觉样式、部署脚本、CI workflow、运行与基础设施配置、成套测试各有负责人。改动必须连带碰到这些文件时，只做让功能成立的最小改动，并在交付报告里点名交给对应负责人复核。
 
