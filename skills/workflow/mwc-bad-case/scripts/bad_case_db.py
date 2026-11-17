@@ -328,11 +328,13 @@ def list_cases(
     params: list[Any] = []
     if not include_deleted:
         clauses.append("status != 'deleted'")
-    if status:
+    if status and status != "all":
         if status not in STATUSES:
-            raise ValueError(f"status must be one of: {', '.join(STATUSES)}")
+            raise ValueError(f"status must be one of: {', '.join(STATUSES)}, all")
         clauses.append("status = ?")
         params.append(status)
+    elif not status and not include_deleted:
+        clauses.append("status IN ('open', 'reviewing')")
     if category:
         clauses.append("category = ?")
         params.append(category)
@@ -427,8 +429,8 @@ def build_parser() -> argparse.ArgumentParser:
     show.add_argument("id")
     show.add_argument("--history", action="store_true")
 
-    listing = commands.add_parser("list", help="list records")
-    listing.add_argument("--status", choices=STATUSES)
+    listing = commands.add_parser("list", help="list open/reviewing records by default")
+    listing.add_argument("--status", choices=(*STATUSES, "all"), help="explicit status, or all non-deleted records")
     listing.add_argument("--category")
     listing.add_argument("--session-id")
     listing.add_argument("--query")

@@ -83,9 +83,13 @@ python3 "$SKILL_DIR/scripts/bad_case_db.py" --db "$DB" record --json-file case.j
 # 查一条并查看所有更新事件
 python3 "$SKILL_DIR/scripts/bad_case_db.py" --db "$DB" show <case-id> --history
 
-# 查列表；JSON/JSONL/CSV 便于后续可视化或导入分析
+# 默认只查待处理 open、处理中 reviewing；JSON/JSONL/CSV 均使用此过滤
 python3 "$SKILL_DIR/scripts/bad_case_db.py" --db "$DB" list --format json
 python3 "$SKILL_DIR/scripts/bad_case_db.py" --db "$DB" list --category scope-drift --format csv
+
+# 查看历史（含已处理 resolved、已忽略 ignored，不含软删除）或单独查看噪音标记
+python3 "$SKILL_DIR/scripts/bad_case_db.py" --db "$DB" list --status all --format json
+python3 "$SKILL_DIR/scripts/bad_case_db.py" --db "$DB" list --status ignored --format json
 
 # 修改会追加事件，不覆盖历史
 python3 "$SKILL_DIR/scripts/bad_case_db.py" --db "$DB" update <case-id> --json-file update.json
