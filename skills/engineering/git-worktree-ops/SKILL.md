@@ -131,6 +131,7 @@ git ls-files internal/static/dist/        # placeholder 仍被跟踪
 判读规则：
 - **分支有未合并提交或未提交代码**：标为进行中/待收口；报告分支、路径、改动文件和验证状态，勿清理。
 - **仅 `prunable`**：表示 Git 记录的 worktree 路径可能失效，不证明任务完成；先确认目录可达、分支与改动后才提议 `git worktree prune`。
+- **含 submodule 的 worktree**：`git worktree remove` 会报 `working trees containing submodules cannot be moved or removed`（即使工作树干净）。确认无未提交改动后，直接 `rm -rf <worktree目录>` 再在所属仓 `git worktree prune` 清理登记；submodule 内容只是检出，无独有数据。
 - **主仓未跟踪 build 目录或计划文件**：单独列为残留/待分类，不归因给某个 worktree，也不擅自删除。
 - 若存在与任务名相符的计划文件，读取其目标与 checklist；计划未打勾不是实现状态的唯一证据，必须同代码和测试记录交叉判断。
 
