@@ -19,9 +19,13 @@ from typing import Any, Iterator, Mapping
 logger = logging.getLogger(__name__)
 
 PLUGIN_DIR = Path(__file__).resolve().parent
-CONFIG_PATH = PLUGIN_DIR / "config.json"
 SECTION_ID = "custom-prompt-inject"
 MAX_CHARS = 2000
+try:  # 跟随宿主单段上限（上游 4000，可本地调大）
+    from hermes_cli.plugins_dispatch import MAX_SYSTEM_PROMPT_SECTION_CHARS as HOST_MAX_CHARS
+except Exception:
+    HOST_MAX_CHARS = 4000
+USER_CONTEXT_MAX_CHARS = 10000  # 宿主 hooks.output_spill.max_chars 默认值，超过会被落盘成文件
 MARKER = "[custom-prompt-inject]"
 LEAD = "以下规则由 custom-prompt-inject 注入：\n\n"
 REVOKE_MARKER = "[custom-prompt-inject revoke]"
@@ -37,10 +41,15 @@ _VALID_CONDITIONS = {"subagent", "model", "models", "model_regex", "first_inject
 _secret_cache: bytes | None = None
 
 
+CONFIG_PATH = PLUGIN_DIR / "config.json"
+
+
 def _resolve_prompt(rel: str) -> Path:
     path = (PLUGIN_DIR / rel).resolve()
     if path != PLUGIN_DIR and PLUGIN_DIR not in path.parents:
         raise ValueError(f"prompt path escapes plugin directory: {rel}")
+    if not path.is_file():
+        raise ValueError(f"prompt not found: {rel}")
     return path
 
 
@@ -49,8 +58,8 @@ def _load_config() -> dict[str, Any]:
     if not isinstance(data, dict) or not isinstance(data.get("rules"), list):
         raise ValueError("config.json must contain a rules array")
     max_chars = data.get("max_chars", MAX_CHARS)
-    if not isinstance(max_chars, int) or not 1 <= max_chars <= MAX_CHARS:
-        raise ValueError(f"max_chars must be between 1 and {MAX_CHARS}")
+    if not isinstance(max_chars, int) or not 1 <= max_chars <= USER_CONTEXT_MAX_CHARS:
+        raise ValueError(f"max_chars must be between 1 and {USER_CONTEXT_MAX_CHARS}")
     seen_ids: set[str] = set()
     for rule in data["rules"]:
         if not isinstance(rule, dict):
@@ -66,6 +75,8 @@ def _load_config() -> dict[str, Any]:
             raise ValueError(f"rule {rule_id}: prompt must be a non-empty path")
         if not isinstance(targets, list) or not targets or not set(targets) <= _VALID_TARGETS:
             raise ValueError(f"rule {rule_id}: inject_into has an unsupported target")
+        if "slot" in rule and not (isinstance(rule["slot"], str) and _RULE_ID_RE.fullmatch(rule["slot"])):
+            raise ValueError(f"rule {rule_id}: slot must be an id-like string")
         if not isinstance(when, dict) or not set(when) <= _VALID_CONDITIONS:
             raise ValueError(f"rule {rule_id}: unsupported condition")
         if "subagent" in when and not isinstance(when["subagent"], bool):
@@ -183,8 +194,34 @@ def _base_matches(rule: Mapping[str, Any], model: str, platform: str) -> bool:
     return _model_matches(when, model)
 
 
+_SPECIFICITY_CONDITIONS = ("subagent", "model", "models", "model_regex")
+
+
+def _specificity(rule: Mapping[str, Any]) -> int:
+    """命中时声明的匹配条件越多越具体；first_injection 是投递过滤，不参与比较。"""
+    when = rule.get("when") or {}
+    return sum(key in when for key in _SPECIFICITY_CONDITIONS)
+
+
 def _target_rules(model: str, platform: str, target: str) -> list[dict[str, Any]]:
-    return [rule for rule in RULES if target in rule["inject_into"] and _base_matches(rule, model, platform)]
+    """每个 slot 取匹配规则里条件最多的一条，同分取配置靠前的；条件最少的那条就是该段的默认版本。
+
+    段落顺序按 slot 在配置中首次出现的位置；不带 slot 的规则各自独立成段。
+    """
+    order: list[str] = []
+    best: dict[str, tuple[int, int]] = {}
+    for index, rule in enumerate(RULES):
+        if target not in rule["inject_into"]:
+            continue
+        slot = rule.get("slot") or f"\0{rule['id']}"
+        if slot not in order:
+            order.append(slot)
+        if not _base_matches(rule, model, platform):
+            continue
+        score = _specificity(rule)
+        if slot not in best or score > best[slot][0]:
+            best[slot] = (score, index)
+    return [RULES[best[slot][1]] for slot in order if slot in best]
 
 
 def _rule_key(rule: Mapping[str, Any], block: str) -> str:
@@ -215,7 +252,7 @@ def _section(info: Mapping[str, Any]) -> str:
         blocks = [_read(rule["prompt"]) for rule in _target_rules(
             str(info.get("model") or ""), str(info.get("platform") or ""), "system_prompt"
         )]
-        return "\n\n".join(blocks)[:MAX_CHARS]
+        return "\n\n".join(blocks)[:min(MAX_CHARS, HOST_MAX_CHARS)]
     except Exception:
         logger.warning("custom-prompt-inject section render failed", exc_info=True)
         return ""
@@ -269,5 +306,5 @@ def _pre_llm_call(
 
 
 def register(ctx: Any) -> None:
-    ctx.register_system_prompt_section(SECTION_ID, _section, position="after_memory", max_chars=MAX_CHARS)
+    ctx.register_system_prompt_section(SECTION_ID, _section, position="after_memory", max_chars=min(MAX_CHARS, HOST_MAX_CHARS))
     ctx.register_hook("pre_llm_call", _pre_llm_call)

@@ -1,9 +1,10 @@
 {
-  "max_chars": 2000,
+  "max_chars": 10000,
   "rules": [
     {
-      "id": "subagent-common",
-      "prompt": "prompts/family/subagent-prompt-common.md",
+      "id": "subagent-default",
+      "slot": "subagent",
+      "prompt": "prompts/subagent/default.md",
       "inject_into": [
         "system_prompt",
         "user_context"
@@ -13,15 +14,139 @@
       }
     },
     {
-      "id": "openai-main",
-      "prompt": "prompts/family/openai.md",
+      "id": "model-sol",
+      "slot": "model",
+      "prompt": "prompts/model/sol.md",
       "inject_into": [
         "system_prompt",
         "user_context"
       ],
       "when": {
         "subagent": false,
+        "model_regex": "(?:^|/)gpt-6\\.2-sol(?:$|[-/])"
+      }
+    },
+    {
+      "id": "model-astra",
+      "slot": "model",
+      "prompt": "prompts/model/astra.md",
+      "inject_into": [
+        "system_prompt",
+        "user_context"
+      ],
+      "when": {
+        "model_regex": "(?:^|/)gpt-6\\.2-astra(?:$|[-/])"
+      }
+    },
+    {
+      "id": "encourage-openai",
+      "slot": "encourage",
+      "prompt": "prompts/encourage/openai.md",
+      "inject_into": [
+        "system_prompt",
+        "user_context"
+      ],
+      "when": {
         "model_regex": "(?:^|/)(?:gpt|codex)(?:-|/|$)"
+      }
+    },
+    {
+      "id": "style-default",
+      "slot": "style",
+      "prompt": "prompts/style/default.md",
+      "inject_into": [
+        "system_prompt",
+        "user_context"
+      ],
+      "when": {
+        "subagent": false
+      }
+    },
+    {
+      "id": "style-sol",
+      "slot": "style",
+      "prompt": "prompts/style/sol.md",
+      "inject_into": [
+        "system_prompt",
+        "user_context"
+      ],
+      "when": {
+        "subagent": false,
+        "model_regex": "(?:^|/)gpt-6\\.2-sol(?:$|[-/])"
+      }
+    },
+    {
+      "id": "style-astra",
+      "slot": "style",
+      "prompt": "prompts/style/astra.md",
+      "inject_into": [
+        "system_prompt",
+        "user_context"
+      ],
+      "when": {
+        "subagent": false,
+        "model_regex": "(?:^|/)gpt-6\\.2-astra(?:$|[-/])"
+      }
+    },
+    {
+      "id": "expression-default",
+      "slot": "expression",
+      "prompt": "prompts/expression/default.md",
+      "inject_into": [
+        "system_prompt",
+        "user_context"
+      ],
+      "when": {
+        "subagent": false
+      }
+    },
+    {
+      "id": "collab-when-default",
+      "slot": "collab-when",
+      "prompt": "prompts/collab-when/default.md",
+      "inject_into": [
+        "system_prompt",
+        "user_context"
+      ],
+      "when": {
+        "subagent": false
+      }
+    },
+    {
+      "id": "collab-when-sol",
+      "slot": "collab-when",
+      "prompt": "prompts/collab-when/sol.md",
+      "inject_into": [
+        "system_prompt",
+        "user_context"
+      ],
+      "when": {
+        "subagent": false,
+        "model_regex": "(?:^|/)gpt-6\\.2-sol(?:$|[-/])"
+      }
+    },
+    {
+      "id": "collab-default",
+      "slot": "collab",
+      "prompt": "prompts/collab/default.md",
+      "inject_into": [
+        "system_prompt",
+        "user_context"
+      ],
+      "when": {
+        "subagent": false
+      }
+    },
+    {
+      "id": "omh-default",
+      "slot": "omh",
+      "prompt": "prompts/omh/default.md",
+      "inject_into": [
+        "system_prompt",
+        "user_context"
+      ],
+      "when": {
+        "subagent": false
       }
     }
   ]

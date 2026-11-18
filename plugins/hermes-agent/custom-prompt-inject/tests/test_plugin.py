@@ -25,9 +25,9 @@ def load_plugin():
 
 
 P = load_plugin()
-SOL, CLAUDE, SWE = "gpt-6.1-sol", "claude-opus-5-5", "swe-2"
-FAMILY = P._read("prompts/family/openai.md")
-COMMON = P._read("prompts/family/subagent-prompt-common.md")
+SOL, CLAUDE, SWE = "gpt-6.2-sol", "claude-opus-5-5", "swe-2"
+FAMILY = P._read("prompts/model/sol.md")
+COMMON = P._read("prompts/subagent/default.md")
 
 
 class TestPlugin(unittest.TestCase):
@@ -63,22 +63,25 @@ class TestPlugin(unittest.TestCase):
 
     def test_subagent_rule_is_model_independent(self):
         for model in (SOL, "deepseek-flash", CLAUDE, SWE):
-            self.assertEqual(self.section(model, platform="subagent"), COMMON)
+            # subagent 段固定为 COMMON，与模型无关；其它 slot（如 encourage）可能另行成段
+            self.assertTrue(self.section(model, platform="subagent").startswith(COMMON))
             self.assertIn(COMMON, self.turn(model, sid=f"subagent-{model}", platform="subagent") or "")
 
     def test_model_regex_rule_only_matches_openai_names(self):
-        for model in (SOL, "codex-mini", "openai/gpt-6.1-sol", "openai/codex-mini"):
-            self.assertEqual(self.section(model), FAMILY)
-        self.assertEqual(self.section(CLAUDE), "")
-        self.assertEqual(self.section("deepseek-v4"), "")
+        # config.json 的 model-sol 正则锚定 gpt-6.2-sol：命中该系列的名字才注入 sol.md 段
+        for model in (SOL, "openai/gpt-6.2-sol", "gpt-6.2-sol/extra"):
+            self.assertIn(FAMILY, self.section(model))
+        for model in ("gpt-6.1-sol", "openai/gpt-6.1-sol", "codex-mini", "openai/codex-mini", CLAUDE, "deepseek-v4"):
+            self.assertNotIn(FAMILY, self.section(model))
+        self.assertNotIn(FAMILY, self.section(SOL, platform="subagent"))
 
     def test_conditions_support_exact_model_model_list_and_regex(self):
         rules = [
-            {"id": "exact", "prompt": "prompts/family/openai.md", "inject_into": ["system_prompt"],
+            {"id": "exact", "prompt": "prompts/model/sol.md", "inject_into": ["system_prompt"],
              "when": {"model": SOL}},
-            {"id": "list", "prompt": "prompts/family/subagent-prompt-common.md", "inject_into": ["system_prompt"],
+            {"id": "list", "prompt": "prompts/subagent/default.md", "inject_into": ["system_prompt"],
              "when": {"models": [CLAUDE, SWE]}},
-            {"id": "regex", "prompt": "prompts/family/openai.md", "inject_into": ["system_prompt"],
+            {"id": "regex", "prompt": "prompts/model/sol.md", "inject_into": ["system_prompt"],
              "when": {"model_regex": "^gpt-"}},
         ]
         with patch.object(P, "RULES", rules):
@@ -88,7 +91,7 @@ class TestPlugin(unittest.TestCase):
             self.assertEqual(self.section("gemini-3"), "")
 
     def test_conditions_are_combined_with_and(self):
-        rule = {"id": "combined", "prompt": "prompts/family/openai.md", "inject_into": ["system_prompt"],
+        rule = {"id": "combined", "prompt": "prompts/model/sol.md", "inject_into": ["system_prompt"],
                 "when": {"subagent": False, "models": [SOL], "model_regex": "^gpt-"}}
         with patch.object(P, "RULES", [rule]):
             self.assertEqual(self.section(SOL, platform="webui"), FAMILY)
@@ -97,9 +100,9 @@ class TestPlugin(unittest.TestCase):
 
     def test_targets_control_system_and_user_context_separately(self):
         rules = [
-            {"id": "system-only", "prompt": "prompts/family/openai.md", "inject_into": ["system_prompt"],
+            {"id": "system-only", "prompt": "prompts/model/sol.md", "inject_into": ["system_prompt"],
              "when": {"model": SOL, "subagent": False}},
-            {"id": "user-only", "prompt": "prompts/family/subagent-prompt-common.md", "inject_into": ["user_context"],
+            {"id": "user-only", "prompt": "prompts/subagent/default.md", "inject_into": ["user_context"],
              "when": {"subagent": True}},
         ]
         with patch.object(P, "RULES", rules):
@@ -109,14 +112,14 @@ class TestPlugin(unittest.TestCase):
             self.assertIn(COMMON, self.turn(SOL, sid="child", platform="subagent") or "")
 
     def test_first_injection_true_only_injects_once(self):
-        rule = {"id": "once", "prompt": "prompts/family/openai.md", "inject_into": ["user_context"],
+        rule = {"id": "once", "prompt": "prompts/model/sol.md", "inject_into": ["user_context"],
                 "when": {"model": SOL, "first_injection": True}}
         with patch.object(P, "RULES", [rule]):
             self.assertIn(FAMILY, self.turn(SOL) or "")
             self.assertIsNone(self.turn(SOL))
 
     def test_first_injection_false_waits_until_a_prior_injection_exists(self):
-        rule = {"id": "after", "prompt": "prompts/family/openai.md", "inject_into": ["user_context"],
+        rule = {"id": "after", "prompt": "prompts/model/sol.md", "inject_into": ["user_context"],
                 "when": {"model": SOL, "first_injection": False}}
         with patch.object(P, "RULES", [rule]):
             self.assertIsNone(self.turn(SOL))
@@ -128,7 +131,7 @@ class TestPlugin(unittest.TestCase):
         self.assertIn(FAMILY, self.turn(SOL) or "")
         self.assertIsNone(self.turn(SOL))
         original = P._read
-        with patch.object(P, "_read", side_effect=lambda rel: original(rel) + "\n- edited" if rel.endswith("openai.md") else original(rel)):
+        with patch.object(P, "_read", side_effect=lambda rel: original(rel) + "\n- edited" if rel.endswith("model/sol.md") else original(rel)):
             self.assertIn("edited", self.turn(SOL) or "")
 
     def test_switching_conditions_revokes_stale_rule(self):
@@ -162,7 +165,8 @@ class TestPlugin(unittest.TestCase):
             {"id": "long-a", "prompt": "a.md", "inject_into": ["user_context"], "when": {}},
             {"id": "long-b", "prompt": "b.md", "inject_into": ["user_context"], "when": {}},
         ]
-        with patch.object(P, "RULES", rules), patch.object(P, "_read", return_value="x" * 1500):
+        # 单条 6000 字通知在 10000 上限内可送达，两条合计超过上限，第二条应被暂缓到下一轮
+        with patch.object(P, "RULES", rules), patch.object(P, "_read", return_value="x" * 6000):
             context = self.turn(SOL)
             next_context = self.turn(SOL)
         self.assertIsNotNone(context)
@@ -171,7 +175,7 @@ class TestPlugin(unittest.TestCase):
 
     def test_oversized_notice_is_deferred_without_false_delivery_evidence(self):
         rule = {"id": "oversized", "prompt": "oversized.md", "inject_into": ["user_context"], "when": {}}
-        with patch.object(P, "RULES", [rule]), patch.object(P, "_read", return_value="x" * 5000):
+        with patch.object(P, "RULES", [rule]), patch.object(P, "_read", return_value="x" * 12000):
             self.assertIsNone(self.turn(SOL))
             self.assertIsNone(self.turn(SOL))
 
