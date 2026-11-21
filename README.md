@@ -32,11 +32,11 @@ bbt-agent-toolkit/
 | `engineering` | `context-prefix-slimming`、`git-worktree-ops` |
 | `knowledge` | `decision-matrix` |
 | `prompt-opt` | `prompt-denoise` |
-| `workflow` | `chinese-documentation`、`harness-neutral-agent-prompts`、`mwc-bad-case`、`mwc-bro`、`mwc-chat-end`、`mwc-in-your-own-words`、`mwc-loop-design`、`mwc-next-step`、`mwc-recall`、`mwc-sharpen`、`mwc-teach`、`mwc-what-happened` |
+| `workflow` | `chinese-documentation`、`harness-neutral-agent-prompts`、`mwc-bad-case`、`mwc-bro`、`mwc-chat-end`、`mwc-in-your-own-words`、`mwc-loop-design`、`mwc-next-step`、`mwc-prompt-clean`、`mwc-recall`、`mwc-sharpen`、`mwc-teach`、`mwc-what-happened` |
 
 分类仅用于导航，不改变 skill 名称；`mwc-*` 直接放在 `workflow/` 下，不额外增加族目录。
 
-目录按实际内容创建；上图是结构约定，不表示所有能力已交付。组件专属的参考资料、脚本、模板和测试随组件保存，不在根目录重复归档；只有跨组件验证才放根 `tests/`。已收录 20 个 skill（见上表）；部分资产许可待定，不代表可公开发布。下列验证状态只记录实际执行过的检查，未列出的检查均未执行；未建立统一验证命令或 CI。
+组件专属的参考资料、脚本、模板和测试随组件保存，跨组件验证可放根 `tests/`。部分资产许可待定。下列验证状态记录已执行的检查。仓库尚无统一验证命令或 CI。
 
 - `clean-code`：`scripts/check_examples.py` 在 WSL2（g++ 15.2.0、Python 3.14.9）实跑通过（3 个 C++17 示例与本地链接检查，退出码 0）；未在其他平台验证。
 - `coding-format`：`scripts/validate.py` 未运行。
@@ -51,7 +51,7 @@ bbt-agent-toolkit/
 - [mm-disclosure 插件](plugins/hermes-agent/mm-disclosure/README.md)：离线单元测试 15 项通过；`hermes plugins doctor --ci` 通过（0.3.0，3 个 hook）。未验证宿主实际加载与新会话首轮注入，未对真实 Hindsight 服务端做端到端测试。
 - [custom-prompt-inject 插件](plugins/hermes-agent/custom-prompt-inject/README.md)：按 JSON 条件把自定义提示词注入 system prompt 或 user context；本地离线测试结果以组件 README 为准，未验证宿主实际加载与 WebUI/CLI/gateway 端到端送达。
 - [omh-dag-boundary 插件](plugins/hermes-agent/omh-dag-boundary/README.md)：离线单元测试 13 项通过。未验证宿主 `pre_tool_call` 改写行为、真实 OMH 派发链路与宿主版本兼容性。
-- [prompt-health 工具](tools/prompt-health/README.md)：本次迁移未改动、未重新运行检查，因此此处不给出验证结论。
+- 工具验证入口见 [prompt-health](tools/prompt-health/README.md)。
 - [agents](agents/README.md)：architect、engineer、qa、reviewer 四个协作身份及其与 DAG 节点的对应；各身份目录自包含（只引用本目录 references/、resources/），只放角色方法；只做了 frontmatter、链接闭环与个人路径检索，身份在宿主中的实际行为未实测。
 - [standards](standards/README.md)：通用原则、代码品位、命名、所有权与并发、文档，及 C++/Python/Go 的写法与格式；`standards/cpp/examples/check_examples.py` 实跑通过（3 个 C++17 示例，退出码 0）；其余为文档，只做了相对链接与项目专名检索。
 - [dag-scope-audit 工具](tools/dag-scope-audit/README.md)：离线单元测试 23 项通过；`--help` 正常退出，`--db` 指向不存在的文件时报错并退出 2。未在真实会话库或真实 OMH 运行记录上执行；未在 macOS、Windows 或 Python 3.10–3.13 上实测。
