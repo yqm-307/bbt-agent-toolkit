@@ -86,25 +86,26 @@ def parse_skill(path: Path, rel: str) -> tuple[str, list[str], str]:
 
 
 def reference_findings(root: Path) -> list[dict]:
-    skills: dict[str, tuple[str, list[str], str]] = {}
+    skills: list[tuple[str, str, list[str], str]] = []
+    paths_by_name: dict[str, list[str]] = defaultdict(list)
     findings: list[dict] = []
     for rel in asset_paths(root):
         if not (rel.startswith("skills/") and rel.endswith("/SKILL.md")):
             continue
         try:
-            skills[parse_skill(root / rel, rel)[0]] = (rel, *parse_skill(root / rel, rel)[1:])
+            name, related, body = parse_skill(root / rel, rel)
         except (OSError, UnicodeError, ValueError) as exc:
             findings.append({"id": "REF-UNREADABLE", "severity": "ERROR", "path": rel,
                              "detail": str(exc)})
-    duplicates: dict[str, list[str]] = defaultdict(list)
-    for name, (rel, _, _) in skills.items():
-        duplicates[name].append(rel)
-    for name, paths in duplicates.items():
+            continue
+        skills.append((name, rel, related, body))
+        paths_by_name[name].append(rel)
+    for name, paths in paths_by_name.items():
         if len(paths) > 1:
             findings.append({"id": f"REF-DUPLICATE-{name}", "severity": "ERROR",
                              "path": ", ".join(paths), "detail": f"重复 skill 名称：{name}"})
-    names = set(skills)
-    for name, (rel, related, body) in skills.items():
+    names = set(paths_by_name)
+    for name, rel, related, body in skills:
         for dep in related:
             if dep not in names:
                 findings.append({"id": f"REF-MISSING-{name}-{dep}", "severity": "ERROR",
