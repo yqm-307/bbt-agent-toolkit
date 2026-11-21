@@ -29,6 +29,10 @@ python3 /path/to/prompt_health.py --root .   --check .state/prompt-health/baseli
 
 `--gate --verbose` 会额外打印正文提及但未写入 `related_skills` 的提示。工具只读扫描；只有 `--report` 和 `--snapshot` 明确请求时才写指定文件。它不安装依赖、不修改被扫描仓库、不替代项目自己的 lint、测试或发布门禁。
 
+## 验证
+
+从工具所在仓库的根目录运行 `python3 -B -m unittest discover -s tools/prompt-health/tests`，用临时目录检查 `--gate` 对同名 skill 的判定。
+
 ## 依赖与适配
 
 - Python 3.10+，只使用标准库。
