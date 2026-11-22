@@ -12,8 +12,110 @@
 - 把缺陷包装成返回值或"成功",调用方当业务分支继续走;
 - 在断言可被关闭的语言里,把必须执行的校验写成 assert(默认行为见例);
 - 接口把一个本可不存在的错误暴露给每个调用方,人人都要接。
+- 已建立的内部契约中,防御性 `if` 或 `try/except` 说不清删掉后会失去哪个真实的失败处理;它只是在掩盖内部缺陷或调试期现象。原型阶段或契约尚未稳定时,局部守卫可暂留,稳定后再清理。
+- `try` 包住的范围远大于真正会发生外部错误的操作,失败时无法判断是哪一步需要处理。
+- 对已知契约使用属性、键或类型探测,把必需成员缺失降级成备用路径或默认值。
 
 ## 正反例
+
+### 删除调试守卫,收窄错误边界
+
+已建立契约的内部注册表缺少成员时,让访问在现场失败,不要用默认值伪造结果。对已知对象也直接访问必需属性:
+
+```python run
+HANDLERS = {"ping": lambda: "pong"}
+
+# 反例:调试期留下的守卫,把拼错的事件名变成空结果。
+def dispatch_guarded(event):
+    handler = HANDLERS.get(event)
+    if handler is None:
+        return ""
+    return handler()
+
+# 正例:注册表是内部契约,缺项直接暴露。
+def dispatch(event):
+    return HANDLERS[event]()
+
+class Handler:
+    name = "worker"
+
+class BrokenHandler:
+    pass
+
+def name_guarded(handler):
+    return getattr(handler, "name", "")
+
+def name_required(handler):
+    return handler.name
+
+assert dispatch("ping") == "pong"
+assert dispatch_guarded("pnig") == ""
+assert name_guarded(BrokenHandler()) == ""
+try:
+    dispatch("pnig")
+except KeyError as error:
+    print(f"正例在现场暴露缺失成员: {error}")
+else:
+    raise AssertionError("缺失成员没有暴露")
+try:
+    name_required(BrokenHandler())
+except AttributeError as error:
+    print(f"正例在现场暴露缺失属性: {error}")
+else:
+    raise AssertionError("缺失属性没有暴露")
+```
+示例验证记录:已运行(命令 `python3 -I`,版本 3.14.9;正例暴露 `KeyError` 和 `AttributeError`,反例返回空字符串)
+
+大范围 `try` 会把外部读取、解析和内部注册表查找混在一个恢复分支里。外部读取和解析可以处理,解析后已验证的事件交给内部注册表时,缺项应继续暴露:
+
+```python run
+import json
+
+HANDLERS = {}  # 反例中的内部注册表缺少已注册的 ping 处理器。
+
+
+def dispatch(event):
+    return HANDLERS[event]()
+
+
+def read_event_bad(source):
+    try:
+        payload = json.loads(source.read())
+        return dispatch(payload["event"])
+    except Exception:
+        return ""
+
+
+def read_event(source):
+    try:
+        text = source.read()
+        payload = json.loads(text)
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    event = payload.get("event")
+    if not isinstance(event, str):
+        return None
+    return event
+
+class Source:
+    def read(self):
+        return '{"event": "ping"}'
+
+assert read_event_bad(Source()) == ""
+event = read_event(Source())
+assert event == "ping"
+try:
+    dispatch(event)
+except KeyError:
+    print("正例保留了内部注册表错误")
+else:
+    raise AssertionError("内部注册表错误被吞掉")
+```
+示例验证记录:已运行(命令 `python3 -I`,版本 3.14.9;宽范围捕获返回空字符串,收窄后的捕获暴露内部 `KeyError`)
+
+### 外部输入、断言与错误即值
 
 外部可触发的失败必须运行时校验并进接口;assert 承载不了它(Python `-O` 会移除 assert):
 
@@ -102,6 +204,7 @@ if err := flush(path); err != nil {
 | 失败罕见且要跨多层传播 | 中间层没人处理它,只为转手写样板 | 异常;一个代码库保持一种习惯 |
 | 目标仓禁用异常 | 构建开关或错误协议里明说 | 状态或结果类型,不用异常 |
 | 重新定义语义后契约仍成立 | 新契约使原失败路径不再成立 | 重定义语义,让该失败不存在(作者本人提醒勿过度) |
+| 契约尚未建立或仍在原型阶段 | 调用目标和失败形态仍在探索,局部守卫有明确的临时用途 | 可暂留局部守卫;契约稳定后删除调试性守卫 |
 
 Meyer 写明 demanding 与 tolerant 两种前置条件风格皆可;宽严依本仓既有约定。只管新代码与新接口,既有公共错误集合不动(代码品位正文)。C++ 的 noexcept 与禁异常语境见 [所有权与生命周期](../../cpp/style.md);[表达准则](../code-taste.md)有对应约束。
 
@@ -119,6 +222,7 @@ Meyer 写明 demanding 与 tolerant 两种前置条件风格皆可;宽严依本�
 | 翻转表 | 错误是值,处理方式可编程 | Pike, Errors are values, 2015 | 已核 |
 | 翻转表 | 受检=可恢复,运行时异常=编程错误 | Bloch, Effective Java 3rd, Item 70(依据为第三方转录) | 待核 |
 | 翻转表 | 兜底集中;受检异常有版本化与规模问题 | Hejlsberg 访谈, Artima, 2003 | 已核 |
+| 成熟度与错误处理 | 成熟代码删除调试守卫;避免大范围捕获;已知成员缺失应显式失败 | SGLang Omni `coding-style.md`, `ERROR HANDLING & MATURITY`, https://raw.githubusercontent.com/sgl-project/sglang-omni/ce38231ff7c194cbda2e6f47ca6fab86560daa6e/.claude/skills/code-review/coding-style.md | 已核（2026-11-22 抓取） |
 | Go 例 | `%w` 保留原因链 | Go 源码 src/fmt/errors.go 注释 | 已核 |
 
 ### 延伸阅读(未核)

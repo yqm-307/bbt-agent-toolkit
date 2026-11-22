@@ -6,11 +6,12 @@
 
 ## 信号
 代码或 diff 里能观察到的:
-- 大多数调用点给同一参数传同一个值:该值应当是默认值。
+- 大多数调用点给同一参数传同一个值:该值通常应成为拥有策略层的默认值,且只在该层声明。
 - 默认值不安全:省略后会删除、覆盖或对外发送。
 - 名字像查询的函数,连续两次调用结果不同(它改了外部可见状态)。
 - 消费者依赖错误信息文本、迭代顺序、调用顺序或时序;改这些就跑挂。
 - 非法输入被静默修正后流向下游,错误在远离现场的地方爆出。
+- 配置层和下层工厂各自声明同一个默认值,改动一处后两层的策略分叉。
 
 ## 例
 **命令与查询分开。** 查询返回结果且不改可观察状态,但它读的状态可能变,复用或重排前先确认输入与时机等价。命令推进状态,要小心。名实不符时,先按信号判定它实际是命令,再用名字承认这一点。需要原子性的组合操作(弹出、比较并交换、取或创建)保持合并,用动作名说清。
@@ -73,6 +74,37 @@ assert.strictEqual(call({ legacyRetry: true }), "timeoutMs=500 retries=3");
 ```
 原文验证记录（迁移未重跑）:已运行(node v26.12.1,直接运行 .ts,不查类型)
 
+**默认值只有一个所有者。** 配置层拥有策略默认值,工厂接收必填参数并转发。下层再次写同一个默认值时,修改配置不会覆盖另一份:
+
+```python run
+from dataclasses import dataclass
+
+@dataclass
+class StageConfig:
+    max_batch: int = 16
+
+# 反例:工厂又写一份默认值,与配置层的策略可能分叉。
+def make_worker_bad(max_batch=8):
+    return {"max_batch": max_batch}
+
+# 正例:工厂把配置旋钮当必填参数,只转发。
+def make_worker(max_batch):
+    return {"max_batch": max_batch}
+
+config = StageConfig()
+assert make_worker(config.max_batch) == {"max_batch": 16}
+updated_config = StageConfig(max_batch=32)
+assert make_worker(updated_config.max_batch) == {"max_batch": 32}
+assert make_worker_bad() == {"max_batch": 8}
+try:
+    make_worker()
+except TypeError:
+    print("正例漏传默认值时在调用点暴露")
+else:
+    raise AssertionError("工厂不应重新发明默认值")
+```
+示例验证记录:已运行(命令 `python3 -I`,版本 3.14.9;配置默认值改为 32 后,反例工厂仍返回 8,正例漏传参数抛出 `TypeError`)
+
 ## 翻转
 | 条件 | 可观察信号 | 改选 |
 |---|---|---|
@@ -96,5 +128,6 @@ assert.strictEqual(call({ legacyRetry: true }), "timeoutMs=500 retries=3");
 | 6 | 破坏=多要求或少提供;安全方向=多提供或少要求;新旧共存 | Rich Hickey, Spec-ulation, Clojure/conj 2016,讲稿转录 https://github.com/matthiasn/talk-transcripts/blob/master/Hickey_Rich/Spec_ulation.md | 已核 |
 | 7 | 无文档也易用、难误用;最小意外;只增不减 | Joshua Bloch, How to Design a Good API and Why it Matters,OOPSLA 2006 幻灯 https://research.google.com/pubs/archive/32713.pdf 及其本人转述版 https://www.infoq.com/articles/API-Design-Joshua-Bloch/ | 已核 |
 | 8 | 不兼容变化记 MAJOR,向后兼容新增记 MINOR | semver.org 2.0.0, https://semver.org/ | 已核 |
+| 9 | 配置默认值由单一层拥有并向下传递 | SGLang Omni `coding-style.md`, `CONFIG & MAGIC VALUES`, https://raw.githubusercontent.com/sgl-project/sglang-omni/ce38231ff7c194cbda2e6f47ca6fab86560daa6e/.claude/skills/code-review/coding-style.md | 已核（2026-11-22 抓取） |
 
 延伸阅读(未核):Bertrand Meyer, Object-Oriented Software Construction 2nd ed. §23.1 附近(命令/查询二分的原始出处;未取得原书,仅经 Fowler 转述)。
