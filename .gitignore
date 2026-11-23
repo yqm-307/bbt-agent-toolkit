@@ -8,6 +8,7 @@
 
 # 本地工作与运行产物
 /.state/
+/pipeline/pri/
 /.venv/
 /cache/
 /logs/

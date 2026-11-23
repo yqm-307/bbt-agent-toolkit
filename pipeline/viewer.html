@@ -1,0 +1,807 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+  <title>Pipeline Run Viewer</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f7f7f5;
+      --surface: #fff;
+      --surface-2: #f0f1f3;
+      --surface-3: #e7e9ec;
+      --text: #1d1f23;
+      --muted: #5b626c;
+      --border: #d6d9de;
+      --border-strong: #b9bec7;
+      --live: #2156d1;
+      --live-soft: #e8efff;
+      --replay: #6d4bc3;
+      --replay-soft: #f0ebff;
+      --visited: #53606e;
+      --idle: #c3c7cd;
+      --finished: #2f6f5e;
+      --finished-soft: #e3f2ed;
+      --exhausted: #a15c00;
+      --exhausted-soft: #fff0d8;
+      --error: #b42318;
+      --error-soft: #fff0ee;
+      --focus: #2156d1;
+      --shadow: 0 14px 36px rgb(31 35 41 / 8%);
+      --r-sm: 4px;
+      --r-md: 8px;
+      --r-lg: 12px;
+      --s1: 4px;
+      --s2: 8px;
+      --s3: 12px;
+      --s4: 16px;
+      --s5: 24px;
+      --s6: 32px;
+      --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      --sans: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #141518;
+        --surface: #1c1e22;
+        --surface-2: #24272c;
+        --surface-3: #2b2f35;
+        --text: #e6e7ea;
+        --muted: #a0a7b1;
+        --border: #33373e;
+        --border-strong: #4a5059;
+        --live: #7aa2ff;
+        --live-soft: #202c49;
+        --replay: #b9a3ff;
+        --replay-soft: #302747;
+        --visited: #9ca3af;
+        --idle: #3d424a;
+        --finished: #6cc3a8;
+        --finished-soft: #1d3932;
+        --exhausted: #f2b155;
+        --exhausted-soft: #453116;
+        --error: #ff8a80;
+        --error-soft: #431f1c;
+        --focus: #9ab8ff;
+        --shadow: 0 16px 42px rgb(0 0 0 / 24%);
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.5 var(--sans);
+    }
+    button, input, textarea { font: inherit; }
+    button { color: inherit; }
+    button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
+      outline: 2px solid var(--focus);
+      outline-offset: 2px;
+    }
+    .shell { max-width: 1500px; margin: 0 auto; padding: 24px; }
+    .topbar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 20px;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-mark {
+      width: 34px; height: 34px; border-radius: 9px;
+      display: grid; place-items: center;
+      background: var(--text); color: var(--bg);
+      font: 700 14px/1 var(--mono);
+      letter-spacing: -0.08em;
+    }
+    h1, h2, h3, p { margin: 0; }
+    h1 { font-size: 20px; line-height: 1.2; letter-spacing: -0.02em; }
+    h2 { font-size: 15px; line-height: 1.3; }
+    h3 { font-size: 13px; line-height: 1.3; }
+    .eyebrow { color: var(--muted); font-size: 12px; }
+    .mono { font-family: var(--mono); }
+    .top-meta { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+    .pill, .tag {
+      display: inline-flex; align-items: center; gap: 6px;
+      min-height: 28px; padding: 4px 10px;
+      border: 1px solid var(--border); border-radius: 999px;
+      background: var(--surface); color: var(--muted); font-size: 12px;
+    }
+    .pill strong { color: var(--text); font-weight: 650; }
+    .pill.status-running { color: var(--live); border-color: color-mix(in srgb, var(--live) 35%, var(--border)); background: var(--live-soft); }
+    .pill.status-finished { color: var(--finished); border-color: color-mix(in srgb, var(--finished) 35%, var(--border)); background: var(--finished-soft); }
+    .pill.status-exhausted { color: var(--exhausted); border-color: color-mix(in srgb, var(--exhausted) 35%, var(--border)); background: var(--exhausted-soft); }
+    .card {
+      border: 1px solid var(--border); border-radius: var(--r-lg);
+      background: var(--surface); box-shadow: var(--shadow);
+    }
+    .load-card { max-width: 760px; margin: 72px auto; padding: 32px; }
+    .load-card h1 { margin-bottom: 8px; }
+    .load-card > p { color: var(--muted); max-width: 640px; }
+    .drop-zone {
+      margin: 24px 0 16px; padding: 28px 20px;
+      border: 1px dashed var(--border-strong); border-radius: var(--r-md);
+      text-align: center; background: var(--surface-2);
+      transition: border-color 160ms ease, background 160ms ease;
+    }
+    .drop-zone.is-over { border-color: var(--live); background: var(--live-soft); }
+    .drop-zone p { color: var(--muted); margin-top: 6px; }
+    .button-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .button, .icon-button {
+      min-height: 34px; border: 1px solid var(--border); border-radius: var(--r-sm);
+      background: var(--surface); padding: 6px 11px; cursor: pointer;
+      transition: border-color 160ms ease, background 160ms ease;
+    }
+    .button:hover, .icon-button:hover { border-color: var(--border-strong); background: var(--surface-2); }
+    .button.primary { background: var(--text); border-color: var(--text); color: var(--bg); }
+    .button.primary:hover { opacity: .88; }
+    .button.small { min-height: 30px; padding: 4px 9px; font-size: 12px; }
+    .button[disabled], .icon-button[disabled] { cursor: default; opacity: .45; }
+    textarea {
+      display: block; width: 100%; resize: vertical; min-height: 110px;
+      padding: 10px; border: 1px solid var(--border); border-radius: var(--r-sm);
+      background: var(--surface); color: var(--text); font: 12px/1.55 var(--mono);
+    }
+    .paste-box { display: grid; gap: 8px; }
+    .load-note { margin-top: 16px; color: var(--muted); font-size: 12px; }
+    .load-note code, code { font-family: var(--mono); font-size: .92em; }
+    .error-box, .notice {
+      padding: 12px 14px; border-radius: var(--r-md); border: 1px solid;
+      margin-bottom: 16px;
+    }
+    .error-box { color: var(--error); border-color: color-mix(in srgb, var(--error) 35%, var(--border)); background: var(--error-soft); white-space: pre-wrap; }
+    .notice { color: var(--replay); border-color: color-mix(in srgb, var(--replay) 35%, var(--border)); background: var(--replay-soft); }
+    .notice.warning { color: var(--exhausted); border-color: color-mix(in srgb, var(--exhausted) 35%, var(--border)); background: var(--exhausted-soft); }
+    .app[hidden], .load-card[hidden], .error-box[hidden], .notice[hidden], .list-view[hidden] { display: none; }
+    .section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+    .section-head .muted { color: var(--muted); font-size: 12px; }
+    .workspace { display: grid; grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr); gap: 16px; }
+    .graph-card, .inspector, .history-card { padding: 18px; }
+    .graph-wrap { overflow: auto; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-2); }
+    #graph { display: block; min-width: 760px; min-height: 430px; }
+    .graph-grid { stroke: var(--border); stroke-dasharray: 2 8; opacity: .5; }
+    .edge { fill: none; stroke: var(--idle); stroke-width: 1.5; transition: stroke 160ms ease, stroke-width 160ms ease; }
+    .edge.visited { stroke: var(--visited); stroke-width: 2.5; }
+    .edge.cursor { stroke: var(--replay); stroke-width: 3.5; }
+    .edge-label { fill: var(--muted); font: 12px var(--mono); paint-order: stroke; stroke: var(--surface-2); stroke-width: 5px; stroke-linejoin: round; cursor: pointer; }
+    .edge-label.visited { fill: var(--text); }
+    .node { cursor: pointer; }
+    .node rect { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1.5; }
+    .node.final rect { stroke-width: 3px; stroke-dasharray: 0 0; }
+    .node.live rect { stroke: var(--live); stroke-width: 3px; }
+    .node.replay rect { stroke: var(--replay); stroke-width: 3px; }
+    .node.exhausted rect { stroke: var(--exhausted); stroke-dasharray: 5 4; }
+    .node-title { fill: var(--text); font: 650 13px var(--mono); }
+    .node-subtitle { fill: var(--muted); font-size: 11px; }
+    .node-count { fill: var(--surface-2); stroke: var(--border); }
+    .node-count-text { fill: var(--muted); font: 11px var(--mono); }
+    .graph-hint { padding: 8px 12px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--border); }
+    .legend { display: flex; flex-wrap: wrap; gap: 10px; color: var(--muted); font-size: 12px; }
+    .legend span { display: inline-flex; align-items: center; gap: 5px; }
+    .legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; background: var(--idle); }
+    .legend i.live { background: var(--live); }
+    .legend i.replay { background: var(--replay); }
+    .legend i.final { border: 2px solid var(--muted); background: transparent; }
+    .inspector { display: flex; flex-direction: column; gap: 16px; }
+    .inspector-block { padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+    .inspector-block:last-child { padding-bottom: 0; border-bottom: 0; }
+    .node-id { margin: 6px 0; font: 650 18px/1.2 var(--mono); }
+    .instruction { color: var(--muted); white-space: pre-wrap; }
+    .event-list { display: grid; gap: 6px; margin-top: 10px; }
+    .event-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 7px 9px; border-radius: var(--r-sm); background: var(--surface-2); }
+    .event-row code { color: var(--text); }
+    .event-row span { color: var(--muted); font: 12px var(--mono); }
+    .step-meta { color: var(--muted); font-size: 12px; }
+    .evidence { margin-top: 8px; padding: 10px; border-radius: var(--r-sm); background: var(--surface-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+    .command-box { margin-top: 10px; display: grid; gap: 8px; }
+    .command-box code { display: block; padding: 10px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+    .muted { color: var(--muted); }
+    .history-card { margin-top: 16px; }
+    .timeline { display: grid; gap: 8px; margin-bottom: 16px; }
+    .timeline-row {
+      display: grid; grid-template-columns: 42px minmax(150px, 1fr) minmax(180px, 2fr) minmax(120px, 1.2fr);
+      gap: 10px; align-items: start; padding: 11px 12px;
+      border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-2);
+      cursor: pointer; text-align: left;
+    }
+    .timeline-row:hover { border-color: var(--border-strong); }
+    .timeline-row[aria-selected="true"] { border-color: var(--replay); box-shadow: inset 3px 0 0 var(--replay); background: var(--replay-soft); }
+    .timeline-row.latest[aria-selected="true"] { border-color: var(--live); box-shadow: inset 3px 0 0 var(--live); background: var(--live-soft); }
+    .timeline-index { font: 650 13px var(--mono); color: var(--muted); }
+    .timeline-path code { display: block; overflow-wrap: anywhere; }
+    .timeline-path .from, .timeline-path .to { color: var(--text); }
+    .timeline-path .event { color: var(--replay); }
+    .timeline-evidence { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .timeline-time { color: var(--muted); font: 12px var(--mono); text-align: right; }
+    .empty-timeline { color: var(--muted); padding: 20px; text-align: center; border: 1px dashed var(--border); border-radius: var(--r-md); }
+    .player { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 14px; border-top: 1px solid var(--border); }
+    .player-range { flex: 1 1 180px; accent-color: var(--replay); }
+    .player-label { min-width: 74px; color: var(--muted); font: 12px var(--mono); text-align: center; }
+    select { min-height: 34px; padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--text); }
+    .list-view { margin-top: 12px; overflow: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+    th { color: var(--muted); font-weight: 600; }
+    td code { overflow-wrap: anywhere; }
+    .footer { margin-top: 18px; color: var(--muted); font-size: 12px; display: flex; justify-content: space-between; gap: 12px; }
+    @media (max-width: 1023px) {
+      .shell { padding: 16px; }
+      .topbar { flex-direction: column; gap: 12px; }
+      .top-meta { justify-content: flex-start; }
+      .workspace { grid-template-columns: 1fr; }
+      .timeline-row { grid-template-columns: 38px minmax(130px, 1fr) minmax(160px, 1.5fr); }
+      .timeline-time { text-align: left; grid-column: 2 / -1; }
+    }
+    @media (max-width: 639px) {
+      .shell { padding: 12px; }
+      .load-card { margin: 24px auto; padding: 20px; }
+      .graph-card, .inspector, .history-card { padding: 14px; }
+      .timeline-row { grid-template-columns: 34px 1fr; }
+      .timeline-path, .timeline-evidence, .timeline-time { grid-column: 2; text-align: left; }
+      .top-meta .hash-pill { display: none; }
+      .player { position: sticky; bottom: 8px; z-index: 2; padding: 10px; border: 1px solid var(--border); border-radius: var(--r-md); background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(10px); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">↻·</div>
+        <div>
+          <h1>Pipeline run viewer</h1>
+          <p class="eyebrow">只读查看 · 历史回放 · 不连接运行时</p>
+        </div>
+      </div>
+      <div id="topMeta" class="top-meta" hidden></div>
+    </header>
+
+    <section id="errorBox" class="error-box" role="alert" hidden></section>
+
+    <section id="loader" class="card load-card">
+      <h1>载入一次运行</h1>
+      <p>选择 `status NAME RUN_ID --history --graph` 的 JSON 输出，页面只在内存中读取，不会上传、写回或推进 pipeline。</p>
+      <div id="dropZone" class="drop-zone" tabindex="0">
+        <button id="chooseFile" class="button primary" type="button">选择 JSON 文件</button>
+        <p>也可以把 JSON 文件拖到这里</p>
+        <input id="fileInput" type="file" accept="application/json,.json,.txt" hidden>
+      </div>
+      <div class="paste-box">
+        <label for="jsonInput"><strong>粘贴 JSON</strong></label>
+        <textarea id="jsonInput" spellcheck="false" placeholder="粘贴 status --history --graph 的 stdout JSON"></textarea>
+        <div class="button-row">
+          <button id="loadPaste" class="button" type="button">载入粘贴内容</button>
+          <button id="sampleData" class="button" type="button">载入示例</button>
+        </div>
+      </div>
+      <p class="load-note">生成命令：<code>python3 pipeline/control.py status &lt;name&gt; &lt;run-id&gt; --history --graph</code></p>
+    </section>
+
+    <main id="app" class="app" hidden>
+      <div id="replayNotice" class="notice" hidden></div>
+      <div id="statusNotice" class="notice" hidden></div>
+      <section class="workspace">
+        <article class="card graph-card">
+          <div class="section-head">
+            <div>
+              <h2>流程图</h2>
+              <span class="muted">点击节点查看定义，点击已走过的边跳到对应步骤</span>
+            </div>
+            <div class="button-row">
+              <button id="listToggle" class="button small" type="button" aria-pressed="false">列表视图</button>
+              <button id="reload" class="button small" type="button">重新载入</button>
+            </div>
+          </div>
+          <div class="legend" aria-label="图例">
+            <span><i class="live"></i>最新状态</span>
+            <span><i class="replay"></i>回放游标</span>
+            <span><i></i>未经过</span>
+            <span><i class="final"></i>终点</span>
+          </div>
+          <div class="graph-wrap" style="margin-top: 12px">
+            <svg id="graph" role="img" aria-label="Pipeline 流程图"></svg>
+            <div class="graph-hint">图上高亮只表示当前查看位置。页面不会改变运行状态。</div>
+          </div>
+          <div id="listView" class="list-view" hidden></div>
+        </article>
+
+        <aside class="card inspector" aria-live="polite">
+          <div class="inspector-block">
+            <p class="eyebrow" id="inspectorKicker">当前节点</p>
+            <div id="nodeId" class="node-id mono">—</div>
+            <p id="nodeInstruction" class="instruction">—</p>
+          </div>
+          <div class="inspector-block">
+            <h3>可用事件</h3>
+            <div id="eventList" class="event-list"></div>
+          </div>
+          <div class="inspector-block">
+            <h3 id="stepTitle">当前步骤</h3>
+            <p id="stepMeta" class="step-meta">—</p>
+            <div id="stepEvidence" class="evidence">暂无事件</div>
+          </div>
+          <div id="nextAction" class="inspector-block"></div>
+        </aside>
+      </section>
+
+      <section class="card history-card">
+        <div class="section-head">
+          <div>
+            <h2>历史时间线</h2>
+            <span id="timelineSummary" class="muted">—</span>
+          </div>
+          <button id="shortcuts" class="button small" type="button">快捷键 ?</button>
+        </div>
+        <div id="timeline" class="timeline" role="listbox" aria-label="Pipeline 事件历史"></div>
+        <div class="player" aria-label="回放控制">
+          <button id="firstStep" class="icon-button" type="button" title="跳到第一步">⏮</button>
+          <button id="previousStep" class="icon-button" type="button" title="上一步">◀</button>
+          <button id="playPause" class="button" type="button">播放</button>
+          <button id="nextStep" class="icon-button" type="button" title="下一步">▶</button>
+          <button id="latestStep" class="icon-button" type="button" title="跳到最新">⏭</button>
+          <span id="playerLabel" class="player-label">第 0 / 0 步</span>
+          <input id="range" class="player-range" type="range" min="0" max="0" value="0" step="1" aria-label="回放步骤">
+          <select id="speed" aria-label="播放速度">
+            <option value="2000">0.5×</option>
+            <option value="1000" selected>1×</option>
+            <option value="500">2×</option>
+          </select>
+        </div>
+      </section>
+      <footer class="footer">
+        <span id="sourceLabel">—</span>
+        <span>只读页面 · 数据关闭页面后丢弃</span>
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    "use strict";
+    const MAX_INPUT_BYTES = 5 * 1024 * 1024;
+    const $ = (id) => document.getElementById(id);
+    const ui = {
+      loader: $("loader"), error: $("errorBox"), app: $("app"), topMeta: $("topMeta"),
+      dropZone: $("dropZone"), fileInput: $("fileInput"), jsonInput: $("jsonInput"),
+      graph: $("graph"), listView: $("listView"), timeline: $("timeline"),
+      replayNotice: $("replayNotice"), statusNotice: $("statusNotice"),
+      nodeId: $("nodeId"), nodeInstruction: $("nodeInstruction"), inspectorKicker: $("inspectorKicker"),
+      eventList: $("eventList"), stepTitle: $("stepTitle"), stepMeta: $("stepMeta"),
+      stepEvidence: $("stepEvidence"), nextAction: $("nextAction"), timelineSummary: $("timelineSummary"),
+      range: $("range"), playerLabel: $("playerLabel"), playPause: $("playPause"),
+      firstStep: $("firstStep"), previousStep: $("previousStep"), nextStep: $("nextStep"),
+      latestStep: $("latestStep"), speed: $("speed"), sourceLabel: $("sourceLabel"),
+      listToggle: $("listToggle")
+    };
+    let model = null;
+    let cursor = 0;
+    let timer = null;
+    let selectedNode = null;
+    let listMode = false;
+
+    function esc(value) {
+      return String(value ?? "").replace(/[&<>\"']/g, (char) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"
+      }[char]));
+    }
+
+    function fail(message) {
+      stop();
+      ui.error.textContent = message;
+      ui.error.hidden = false;
+      ui.app.hidden = true;
+      ui.loader.hidden = false;
+    }
+
+    function clearError() {
+      ui.error.hidden = true;
+      ui.error.textContent = "";
+    }
+
+    function asNonEmptyString(value, label) {
+      if (typeof value !== "string" || !value.trim()) throw new Error(`${label} 必须是非空文本`);
+      return value;
+    }
+
+    function normalize(raw, sourceLabel) {
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("输入必须是 JSON 对象");
+      if (raw.definition && !raw.nodes) throw new Error("这是原始 state.json，请先运行 status NAME RUN_ID --history --graph");
+      if (!raw.nodes || !raw.initial || !Array.isArray(raw.history)) throw new Error("缺少流程图或运行历史，请使用 status --history --graph 的输出");
+      if (!Array.isArray(raw.nodes) || raw.nodes.length === 0) throw new Error("nodes 必须是非空数组");
+      if (!Number.isInteger(raw.max_steps) || raw.max_steps < 1) throw new Error("max_steps 必须是正整数");
+      if (!Number.isInteger(raw.revision) || raw.revision !== raw.history.length) throw new Error("revision 与 history 长度不一致");
+      const nodes = new Map();
+      raw.nodes.forEach((node, index) => {
+        const id = asNonEmptyString(node && node.id, `nodes[${index}].id`);
+        if (nodes.has(id)) throw new Error(`重复节点 ${id}`);
+        if (typeof node.final !== "boolean" || typeof node.instruction !== "string" || !node.events || typeof node.events !== "object" || Array.isArray(node.events)) {
+          throw new Error(`节点 ${id} 的字段不完整`);
+        }
+        const events = {};
+        Object.entries(node.events).forEach(([event, target]) => {
+          asNonEmptyString(event, `${id} 的事件名`);
+          asNonEmptyString(target, `${id}.${event} 的目标`);
+          events[event] = target;
+        });
+        nodes.set(id, { id, final: node.final, instruction: node.instruction, events });
+      });
+      if (!nodes.has(raw.initial)) throw new Error(`initial 节点不存在：${raw.initial}`);
+      const steps = [{ index: 0, node: raw.initial }];
+      raw.history.forEach((entry, index) => {
+        if (!entry || typeof entry !== "object") throw new Error(`第 ${index + 1} 条历史不是对象`);
+        const previous = steps[index];
+        const current = nodes.get(previous.node || previous.to);
+        asNonEmptyString(entry.event, `第 ${index + 1} 条历史的 event`);
+        asNonEmptyString(entry.evidence, `第 ${index + 1} 条历史的 evidence`);
+        asNonEmptyString(entry.recorded_at, `第 ${index + 1} 条历史的 recorded_at`);
+        const target = current.events[entry.event];
+        if (!target || !nodes.has(target)) throw new Error(`第 ${index + 1} 条历史的事件 ${entry.event} 不存在或目标不存在`);
+        steps.push({ index: index + 1, node: target, from: current.id, event: entry.event, to: target, evidence: entry.evidence, recordedAt: entry.recorded_at });
+      });
+      if (steps.length - 1 > raw.max_steps) throw new Error("history 超出 max_steps");
+      const lastNode = steps[steps.length - 1].node || steps[steps.length - 1].to;
+      if (!raw.current || raw.current.id !== lastNode) throw new Error("history 推导出的当前节点与 current 不一致");
+      const computedStatus = statusAt(nodes, lastNode, raw.history.length, raw.max_steps);
+      if (raw.status !== computedStatus) throw new Error(`status 不一致：报告为 ${raw.status}，推导为 ${computedStatus}`);
+      return { pipeline: asNonEmptyString(raw.pipeline, "pipeline"), runDir: typeof raw.run_dir === "string" ? raw.run_dir : "", definitionSha: raw.definition_sha256 || "", maxSteps: raw.max_steps, status: raw.status, initial: raw.initial, nodes, nodeOrder: raw.nodes.map((node) => node.id), history: raw.history, steps, sourceLabel };
+    }
+
+    function statusAt(nodes, nodeId, revision, maxSteps) {
+      const node = nodes.get(nodeId);
+      if (node.final) return "finished";
+      if (revision === maxSteps) return "exhausted";
+      return "running";
+    }
+
+    function loadText(text, sourceLabel) {
+      clearError();
+      if (new TextEncoder().encode(text).length > MAX_INPUT_BYTES) return fail("输入超过 5 MiB，页面拒绝载入。");
+      let raw;
+      try { raw = JSON.parse(text); } catch (error) { return fail(`JSON 解析失败：${error.message}`); }
+      try { model = normalize(raw, sourceLabel); } catch (error) { return fail(`数据校验失败：${error.message}`); }
+      cursor = model.history.length;
+      selectedNode = null;
+      ui.loader.hidden = true;
+      ui.app.hidden = false;
+      ui.sourceLabel.textContent = `来源：${model.sourceLabel} · 载入于 ${new Date().toLocaleTimeString()}`;
+      render();
+    }
+
+    function currentNode() { return model.steps[cursor].node ? model.nodes.get(model.steps[cursor].node) : model.nodes.get(model.steps[cursor].to); }
+    function currentStep() { return model.steps[cursor]; }
+    function latestNode() { return model.nodes.get(model.steps[model.steps.length - 1].node || model.steps[model.steps.length - 1].to); }
+
+    function edgeKey(from, event, to) { return `${from}\u0000${event}\u0000${to}`; }
+    function stepForIndex(index) { return index === 0 ? null : model.steps[index]; }
+
+    function countsAt(position) {
+      const nodes = new Map([[model.initial, 1]]);
+      const edges = new Map();
+      for (let index = 1; index <= position; index += 1) {
+        const step = model.steps[index];
+        nodes.set(step.to, (nodes.get(step.to) || 0) + 1);
+        const key = edgeKey(step.from, step.event, step.to);
+        edges.set(key, (edges.get(key) || 0) + 1);
+      }
+      return { nodes, edges };
+    }
+
+    function layout() {
+      const distance = new Map([[model.initial, 0]]);
+      const queue = [model.initial];
+      while (queue.length) {
+        const id = queue.shift();
+        const node = model.nodes.get(id);
+        Object.values(node.events).forEach((target) => {
+          if (!distance.has(target)) { distance.set(target, distance.get(id) + 1); queue.push(target); }
+        });
+      }
+      const maxDistance = Math.max(...Array.from(distance.values()), 0);
+      model.nodes.forEach((node, id) => { if (node.final) distance.set(id, maxDistance + 1); });
+      const columns = new Map();
+      model.nodeOrder.forEach((id) => {
+        const col = distance.get(id) ?? maxDistance + 1;
+        if (!columns.has(col)) columns.set(col, []);
+        columns.get(col).push(id);
+      });
+      const width = Math.max(760, (Math.max(...columns.keys()) + 1) * 260 + 80);
+      const height = Math.max(430, Math.max(...Array.from(columns.values()).map((ids) => ids.length), 1) * 110 + 100);
+      const positions = new Map();
+      columns.forEach((ids, col) => ids.forEach((id, row) => positions.set(id, { x: 40 + col * 260, y: 48 + row * 100, col, row })));
+      return { width, height, positions };
+    }
+
+    function svgEl(tag, attrs = {}) {
+      const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
+      Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, value));
+      return node;
+    }
+
+    function renderGraph() {
+      const svg = ui.graph;
+      const { width, height, positions } = layout();
+      const counts = countsAt(cursor);
+      const current = currentNode();
+      const cursorStep = stepForIndex(cursor);
+      svg.replaceChildren();
+      svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+      svg.setAttribute("aria-label", `${model.pipeline} 流程图，共 ${model.nodes.size} 个节点，当前查看 ${current.id}`);
+      const defs = svgEl("defs");
+      const marker = svgEl("marker", { id: "arrow", markerWidth: "8", markerHeight: "8", refX: "7", refY: "4", orient: "auto", markerUnits: "strokeWidth" });
+      marker.appendChild(svgEl("path", { d: "M0,0 L8,4 L0,8 z", fill: "context-stroke" }));
+      defs.appendChild(marker);
+      svg.appendChild(defs);
+      const grid = svgEl("g", { class: "grid" });
+      for (let x = 20; x < width; x += 260) grid.appendChild(svgEl("line", { x1: x, y1: 18, x2: x, y2: height - 18, class: "graph-grid" }));
+      svg.appendChild(grid);
+      const edgeLayer = svgEl("g");
+      const edgeRecords = [];
+      model.nodeOrder.forEach((from) => {
+        const node = model.nodes.get(from);
+        Object.entries(node.events).forEach(([event, to]) => {
+          const a = positions.get(from), b = positions.get(to);
+          const same = from === to;
+          let d, labelX, labelY;
+          if (same) {
+            d = `M ${a.x + 55} ${a.y} C ${a.x + 55} ${a.y - 55}, ${a.x + 125} ${a.y - 55}, ${a.x + 125} ${a.y}`;
+            labelX = a.x + 88; labelY = a.y - 45;
+          } else if (b.col > a.col) {
+            const sx = a.x + 180, sy = a.y + 28, tx = b.x, ty = b.y + 28;
+            const mx = (sx + tx) / 2;
+            d = `M ${sx} ${sy} C ${mx} ${sy}, ${mx} ${ty}, ${tx} ${ty}`;
+            labelX = mx - 20; labelY = (sy + ty) / 2 - 7;
+          } else {
+            const sx = a.x + 90, sy = a.y + 64, tx = b.x + 90, ty = b.y + 64;
+            const dip = Math.max(sy, ty) + 42 + Math.abs(a.col - b.col) * 18;
+            d = `M ${sx} ${sy} C ${sx} ${dip}, ${tx} ${dip}, ${tx} ${ty}`;
+            labelX = (sx + tx) / 2 - 20; labelY = dip - 7;
+          }
+          const key = edgeKey(from, event, to);
+          const visited = counts.edges.has(key);
+          const isCursor = cursorStep && cursorStep.from === from && cursorStep.event === event && cursorStep.to === to;
+          const group = svgEl("g", { class: "edge-group", tabindex: visited ? "0" : "-1", role: visited ? "button" : "presentation" });
+          const path = svgEl("path", { d, class: `edge${visited ? " visited" : ""}${isCursor ? " cursor" : ""}`, "marker-end": "url(#arrow)" });
+          const label = svgEl("text", { x: labelX, y: labelY, class: `edge-label${visited ? " visited" : ""}` });
+          label.textContent = event;
+          group.append(path, label);
+          if (visited) {
+            const jump = () => { const indices = model.steps.map((step, index) => step.from === from && step.event === event && step.to === to ? index : -1).filter((index) => index >= 1 && index <= cursor); if (indices.length) setCursor(indices[indices.length - 1]); };
+            group.addEventListener("click", jump);
+            group.addEventListener("keydown", (eventObject) => { if (eventObject.key === "Enter" || eventObject.key === " ") { eventObject.preventDefault(); jump(); } });
+          }
+          edgeLayer.appendChild(group);
+          edgeRecords.push({ from, event, to });
+        });
+      });
+      svg.appendChild(edgeLayer);
+      const nodeLayer = svgEl("g");
+      model.nodeOrder.forEach((id) => {
+        const node = model.nodes.get(id), pos = positions.get(id);
+        const isCurrent = current.id === id;
+        const classes = ["node"];
+        if (node.final) classes.push("final");
+        if (isCurrent) classes.push(cursor === model.history.length ? "live" : "replay");
+        if (isCurrent && statusAt(model.nodes, id, cursor, model.maxSteps) === "exhausted") classes.push("exhausted");
+        const group = svgEl("g", { class: classes.join(" "), tabindex: "0", role: "button", "aria-label": `查看节点 ${id}` });
+        const rect = svgEl("rect", { x: pos.x, y: pos.y, width: 180, height: 56, rx: 8 });
+        const title = svgEl("text", { x: pos.x + 12, y: pos.y + 23, class: "node-title" });
+        title.textContent = id;
+        const subtitle = svgEl("text", { x: pos.x + 12, y: pos.y + 42, class: "node-subtitle" });
+        subtitle.textContent = node.final ? "终点" : `${Object.keys(node.events).length} 个事件`;
+        group.append(rect, title, subtitle);
+        const count = counts.nodes.get(id) || 0;
+        if (count > 1) {
+          group.append(svgEl("circle", { cx: pos.x + 168, cy: pos.y + 12, r: 11, class: "node-count" }));
+          const countText = svgEl("text", { x: pos.x + 168, y: pos.y + 16, "text-anchor": "middle", class: "node-count-text" });
+          countText.textContent = `×${count}`;
+          group.appendChild(countText);
+        }
+        const inspect = () => { selectedNode = id; renderInspector(); };
+        group.addEventListener("click", inspect);
+        group.addEventListener("keydown", (eventObject) => { if (eventObject.key === "Enter" || eventObject.key === " ") { eventObject.preventDefault(); inspect(); } });
+        nodeLayer.appendChild(group);
+      });
+      svg.appendChild(nodeLayer);
+    }
+
+    function renderTopMeta() {
+      const status = model.status;
+      const runId = model.runDir ? model.runDir.split(/[\\/]/).filter(Boolean).pop() : "<run-id>";
+      ui.topMeta.hidden = false;
+      ui.topMeta.innerHTML = `<span class="pill"><strong class="mono">${esc(model.pipeline)}</strong> / <span class="mono">${esc(runId)}</span></span><span class="pill status-${esc(status)}"><strong>${esc(status)}</strong></span><span class="pill"><strong>步数</strong> ${model.history.length} / ${model.maxSteps}</span><span class="pill hash-pill" title="${esc(model.definitionSha)}"><strong>definition</strong> <span class="mono">${esc(model.definitionSha.slice(0, 12) || "—")}</span></span><span class="pill"><strong>模式</strong> 只读</span>`;
+    }
+
+    function renderInspector() {
+      const step = currentStep();
+      const cursorNode = selectedNode ? model.nodes.get(selectedNode) : currentNode();
+      const cursorStatus = statusAt(model.nodes, currentNode().id, cursor, model.maxSteps);
+      ui.inspectorKicker.textContent = selectedNode ? `查看节点 ${selectedNode}（定义）` : `第 ${cursor} 步时的节点 · ${cursorStatus}`;
+      ui.nodeId.textContent = cursorNode.id;
+      ui.nodeInstruction.textContent = cursorNode.instruction || "无说明";
+      ui.eventList.replaceChildren();
+      const entries = Object.entries(cursorNode.events);
+      if (!entries.length) {
+        const empty = document.createElement("p"); empty.className = "muted"; empty.textContent = "无可用事件"; ui.eventList.appendChild(empty);
+      } else entries.forEach(([event, target]) => {
+        const row = document.createElement("div"); row.className = "event-row";
+        const left = document.createElement("code"); left.textContent = event;
+        const right = document.createElement("span"); right.textContent = `→ ${target}`;
+        row.append(left, right); ui.eventList.appendChild(row);
+      });
+      if (selectedNode) {
+        ui.stepTitle.textContent = "定义查看";
+        ui.stepMeta.textContent = "点击 Esc 返回回放游标";
+        ui.stepEvidence.textContent = "节点定义不会移动回放位置。";
+        ui.nextAction.replaceChildren();
+        return;
+      }
+      if (cursor === 0) {
+        ui.stepTitle.textContent = "初始位置";
+        ui.stepMeta.textContent = `revision 0 · ${model.initial}`;
+        ui.stepEvidence.textContent = "尚无事件，当前位于流程入口。";
+      } else {
+        ui.stepTitle.textContent = `第 ${cursor} 步 · ${step.from} → ${step.to}`;
+        ui.stepMeta.textContent = `${step.event} · revision ${cursor - 1} → ${cursor} · ${formatTime(step.recordedAt)}`;
+        ui.stepEvidence.textContent = step.evidence;
+      }
+      renderNextAction();
+    }
+
+    function renderNextAction() {
+      ui.nextAction.replaceChildren();
+      if (cursor !== model.history.length || model.status !== "running") {
+        const text = document.createElement("p"); text.className = "muted";
+        text.textContent = cursor < model.history.length ? "历史视图中，回放不会生成或执行事件。" : model.status === "finished" ? "运行已到达终点，不能继续推进。" : "步数已用尽，不能继续推进。";
+        ui.nextAction.appendChild(text);
+        return;
+      }
+      const title = document.createElement("h3"); title.textContent = "下一步操作";
+      const note = document.createElement("p"); note.className = "muted"; note.textContent = "页面只提供复制命令，不执行推进。执行前请在 CLI 重新 status 核对 revision。";
+      ui.nextAction.append(title, note);
+      const node = currentNode();
+      Object.keys(node.events).forEach((event) => {
+        const row = document.createElement("div"); row.className = "command-box";
+        const code = document.createElement("code"); code.textContent = `python3 pipeline/control.py advance ${model.pipeline} ${model.runDir ? model.runDir.split(/[\\/]/).filter(Boolean).pop() : "<run-id>"} --expect ${model.history.length} --event ${event} --evidence '<填写证据>'`;
+        const button = document.createElement("button"); button.className = "button small"; button.type = "button"; button.textContent = `复制 ${event} 命令`;
+        button.addEventListener("click", () => copyText(code.textContent, button));
+        row.append(code, button); ui.nextAction.appendChild(row);
+      });
+    }
+
+    function formatTime(value) {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return value;
+      return `${date.toLocaleString()} · UTC ${value}`;
+    }
+
+    function renderTimeline() {
+      ui.timeline.replaceChildren();
+      ui.timelineSummary.textContent = `${model.history.length} 条事件 · 游标第 ${cursor} 步`;
+      if (!model.history.length) {
+        const empty = document.createElement("div"); empty.className = "empty-timeline"; empty.textContent = `尚无事件 · 在 ${model.initial} 等待`; ui.timeline.appendChild(empty);
+      } else {
+        for (let index = 1; index <= model.history.length; index += 1) {
+          const step = model.steps[index], previous = index > 1 ? model.steps[index - 1].recordedAt : null;
+          const row = document.createElement("div"); row.className = `timeline-row${index === model.history.length ? " latest" : ""}`; row.setAttribute("role", "option"); row.setAttribute("aria-selected", String(cursor === index)); row.tabIndex = cursor === index ? 0 : -1;
+          const gap = previous ? timeGap(previous, step.recordedAt) : "—";
+          row.innerHTML = `<div class="timeline-index">#${index}</div><div class="timeline-path"><code><span class="from">${esc(step.from)}</span> <span class="event">→ ${esc(step.event)} →</span> <span class="to">${esc(step.to)}</span></code><span class="muted">间隔 ${esc(gap)}</span></div><div class="timeline-evidence" title="${esc(step.evidence)}">${esc(step.evidence)}</div><div class="timeline-time" title="${esc(step.recordedAt)}">${esc(formatTime(step.recordedAt))}</div>`;
+          row.addEventListener("click", () => setCursor(index));
+          row.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setCursor(index); } if (event.key === "ArrowDown") { event.preventDefault(); focusTimeline(index + 1); } if (event.key === "ArrowUp") { event.preventDefault(); focusTimeline(index - 1); } });
+          ui.timeline.appendChild(row);
+        }
+      }
+    }
+
+    function timeGap(from, to) {
+      const a = new Date(from).getTime(), b = new Date(to).getTime();
+      if (!Number.isFinite(a) || !Number.isFinite(b)) return "—";
+      const seconds = Math.round((b - a) / 1000);
+      if (seconds < 0) return `⚠ ${seconds}s`;
+      if (seconds < 60) return `${seconds}s`;
+      return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+    }
+
+    function focusTimeline(index) {
+      const bounded = Math.max(1, Math.min(model.history.length, index));
+      const row = ui.timeline.children[bounded - 1];
+      if (row) { row.tabIndex = 0; row.focus(); setCursor(bounded); }
+    }
+
+    function renderList() {
+      const rows = model.nodeOrder.map((id) => {
+        const node = model.nodes.get(id);
+        return `<tr><td><code>${esc(id)}</code></td><td>${node.final ? "终点" : "普通节点"}</td><td>${esc(node.instruction)}</td><td>${Object.entries(node.events).map(([event, target]) => `<code>${esc(event)} → ${esc(target)}</code>`).join("<br>") || "—"}</td></tr>`;
+      }).join("");
+      ui.listView.innerHTML = `<table><thead><tr><th>节点</th><th>类型</th><th>说明</th><th>事件</th></tr></thead><tbody>${rows}</tbody></table>`;
+      ui.listView.hidden = !listMode;
+      ui.listToggle.setAttribute("aria-pressed", String(listMode));
+      ui.listToggle.textContent = listMode ? "关闭列表视图" : "列表视图";
+    }
+
+    function renderNotices() {
+      const latest = latestNode();
+      ui.replayNotice.hidden = cursor === model.history.length;
+      if (cursor < model.history.length) ui.replayNotice.textContent = `历史视图：第 ${cursor} / ${model.history.length} 步，非当前状态。点击“跳到最新”回到最新运行状态。`;
+      const latestStatus = model.status;
+      ui.statusNotice.hidden = false;
+      ui.statusNotice.className = `notice${latestStatus === "exhausted" ? " warning" : ""}`;
+      if (latestStatus === "finished") ui.statusNotice.textContent = `运行已结束于终点 ${latest.id}。页面不推断该终点代表业务成功或失败。`;
+      else if (latestStatus === "exhausted") ui.statusNotice.textContent = `步数用尽 ${model.history.length}/${model.maxSteps}，停在 ${latest.id}，未到终点，不能继续。`;
+      else ui.statusNotice.textContent = `当前运行仍在 ${latest.id}，可用事件由 CLI 按最新 revision 决定。`;
+    }
+
+    function render() {
+      renderTopMeta(); renderNotices(); renderGraph(); renderInspector(); renderTimeline(); renderList();
+      ui.range.max = String(model.history.length); ui.range.value = String(cursor); ui.playerLabel.textContent = `第 ${cursor} / ${model.history.length} 步`;
+      ui.firstStep.disabled = cursor === 0; ui.previousStep.disabled = cursor === 0; ui.nextStep.disabled = cursor === model.history.length; ui.latestStep.disabled = cursor === model.history.length;
+      ui.playPause.textContent = timer ? "暂停" : "播放";
+    }
+
+    function setCursor(value) {
+      stop();
+      cursor = Math.max(0, Math.min(model.history.length, value));
+      selectedNode = null;
+      render();
+      if (cursor < model.history.length) ui.replayNotice.scrollIntoView({ block: "nearest" });
+    }
+
+    function stop() { if (timer) { clearInterval(timer); timer = null; } if (model) ui.playPause.textContent = "播放"; }
+    function togglePlay() {
+      if (!model || cursor >= model.history.length) return;
+      if (timer) return stop() || render();
+      timer = setInterval(() => { if (cursor >= model.history.length) return stop() || render(); cursor += 1; selectedNode = null; render(); }, Number(ui.speed.value));
+      render();
+    }
+
+    async function copyText(text, button) {
+      try { await navigator.clipboard.writeText(text); } catch { const area = document.createElement("textarea"); area.value = text; document.body.appendChild(area); area.select(); document.execCommand("copy"); area.remove(); }
+      const old = button.textContent; button.textContent = "已复制"; setTimeout(() => { button.textContent = old; }, 1200);
+    }
+
+    function readFile(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => loadText(String(reader.result), file.name);
+      reader.onerror = () => fail("文件读取失败。");
+      reader.readAsText(file, "utf-8");
+    }
+
+    $("chooseFile").addEventListener("click", () => ui.fileInput.click());
+    ui.fileInput.addEventListener("change", () => readFile(ui.fileInput.files[0]));
+    ["dragenter", "dragover"].forEach((type) => ui.dropZone.addEventListener(type, (event) => { event.preventDefault(); ui.dropZone.classList.add("is-over"); }));
+    ["dragleave", "drop"].forEach((type) => ui.dropZone.addEventListener(type, (event) => { event.preventDefault(); ui.dropZone.classList.remove("is-over"); }));
+    ui.dropZone.addEventListener("drop", (event) => readFile(event.dataTransfer.files[0]));
+    ui.dropZone.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); ui.fileInput.click(); } });
+    $("loadPaste").addEventListener("click", () => loadText(ui.jsonInput.value, "粘贴内容"));
+    $("sampleData").addEventListener("click", () => loadText(JSON.stringify({ pipeline: "prompt-admission", definition_sha256: "sample", max_steps: 7, status: "running", revision: 4, initial: "screen", current: { id: "monitor" }, nodes: [{ id: "screen", final: false, instruction: "筛查候选", events: { prepared: "review" } }, { id: "review", final: false, instruction: "人工审阅", events: { accepted: "monitor", revise: "screen" } }, { id: "monitor", final: false, instruction: "只报告观察", events: { sampled: "monitor", ready: "approve" } }, { id: "approve", final: false, instruction: "人工批准", events: { approved: "admitted", hold: "monitor" } }, { id: "admitted", final: true, instruction: "候选已获批准", events: {} }], history: [{ event: "prepared", evidence: "合成：候选卡已准备", recorded_at: "2026-11-23T12:00:00+00:00" }, { event: "accepted", evidence: "合成：人工接受", recorded_at: "2026-11-23T12:01:12+00:00" }, { event: "sampled", evidence: "合成：样本已留痕", recorded_at: "2026-11-23T12:04:00+00:00" }, { event: "sampled", evidence: "合成：第二批样本已留痕", recorded_at: "2026-11-23T12:05:20+00:00" }] }, null, 2), "内置合成示例"));
+    $("reload").addEventListener("click", () => { ui.app.hidden = true; ui.loader.hidden = false; ui.topMeta.hidden = true; ui.jsonInput.focus(); });
+    ui.range.addEventListener("input", () => setCursor(Number(ui.range.value)));
+    ui.firstStep.addEventListener("click", () => setCursor(0));
+    ui.previousStep.addEventListener("click", () => setCursor(cursor - 1));
+    ui.nextStep.addEventListener("click", () => setCursor(cursor + 1));
+    ui.latestStep.addEventListener("click", () => setCursor(model.history.length));
+    ui.playPause.addEventListener("click", togglePlay);
+    ui.speed.addEventListener("change", () => { if (timer) { stop(); togglePlay(); } });
+    ui.listToggle.addEventListener("click", () => { listMode = !listMode; renderList(); });
+    $("shortcuts").addEventListener("click", () => alert("←/→ 上一步或下一步\nHome 初始位置\nEnd 跳到最新\n空格 播放或暂停\nEsc 返回游标节点\n? 显示此说明"));
+    document.addEventListener("keydown", (event) => {
+      if (!model || ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName)) return;
+      if (event.key === "ArrowLeft") { event.preventDefault(); setCursor(cursor - 1); }
+      else if (event.key === "ArrowRight") { event.preventDefault(); setCursor(cursor + 1); }
+      else if (event.key === "Home") { event.preventDefault(); setCursor(0); }
+      else if (event.key === "End") { event.preventDefault(); setCursor(model.history.length); }
+      else if (event.key === " ") { event.preventDefault(); togglePlay(); }
+      else if (event.key === "Escape") { selectedNode = null; renderInspector(); }
+      else if (event.key === "?") alert("←/→ 上一步或下一步\nHome 初始位置\nEnd 跳到最新\n空格 播放或暂停\nEsc 返回游标节点\n? 显示此说明");
+    });
+  </script>
+</body>
+</html>
