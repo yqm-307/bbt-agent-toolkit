@@ -32,7 +32,7 @@ bbt-agent-toolkit/
 | `engineering` | `context-prefix-slimming`、`git-worktree-ops` |
 | `knowledge` | `decision-matrix` |
 | `prompt-opt` | `prompt-denoise` |
-| `workflow` | `chinese-documentation`、`harness-neutral-agent-prompts`、`mwc-bad-case`、`mwc-bro`、`mwc-chat-end`、`mwc-in-your-own-words`、`mwc-loop-design`、`mwc-next-step`、`mwc-prompt-clean`、`mwc-recall`、`mwc-sharpen`、`mwc-teach`、`mwc-what-happened` |
+| `workflow` | `chinese-documentation`、`harness-neutral-agent-prompts`、`mwc-bad-case`、`mwc-bro`、`mwc-chat-end`、`mwc-in-your-own-words`、`mwc-loop-design`、`mwc-next-step`、`mwc-prompt-clean`、`mwc-recall`、`mwc-sharpen`、`mwc-teach`、`mwc-try-unblock`、`mwc-what-happened` |
 
 分类仅用于导航，不改变 skill 名称；`mwc-*` 直接放在 `workflow/` 下，不额外增加族目录。
 
@@ -47,7 +47,7 @@ bbt-agent-toolkit/
 - `mwc-chat-end`：`scripts/session_archive.py self-test` 实跑通过（Python 3.14.9）；WebApp 侧 `check` 在真实会话上运行，`hermes sessions archive` 的 `--include-open` 归档在一次性会话上实测并读回，当前会话做过归档→读回→恢复往返；压缩轮换后的回退路径与 WebUI 分支只有自检覆盖，真实 WebUI `check` / `archive` 未运行。
 - `mwc-bad-case`：`tests/test_bad_case_db.py` 实跑通过（3 项）；覆盖 SQLite 记录、查询、更新事件、软删除、恢复、过滤（含列表默认只显示待处理/处理中）和非法输入。未在真实 Hermes session 上验证压缩历史恢复、跨宿主触发或可视化前端。
 - `mwc-loop-design`：`tests/test_check_loop.py` 在仓库内及独立目录实跑通过（各 11 项）；检查不可执行的 Loop DSL 语法、节点/边引用、可达性、并发 join 和每个环的退出/阻塞条件，覆盖空输入拒绝及局部子环漏检回归。未验证真实 DAG/OMH 适配器、模型生成质量与多宿主触发。
-- 无可执行入口的提示词类 skill（`chinese-documentation`、`context-prefix-slimming`、`harness-neutral-agent-prompts`、`mwc-bro`、`mwc-in-your-own-words`、`mwc-next-step`、`mwc-recall`、`mwc-sharpen`、`mwc-teach`、`mwc-what-happened`、`test-case-design`）：已做 frontmatter 与相对链接检查，提示词效果未在宿主中实测。
+- 无可执行入口的提示词类 skill（`chinese-documentation`、`context-prefix-slimming`、`harness-neutral-agent-prompts`、`mwc-bro`、`mwc-in-your-own-words`、`mwc-next-step`、`mwc-recall`、`mwc-sharpen`、`mwc-teach`、`mwc-try-unblock`、`mwc-what-happened`、`test-case-design`）：已做 frontmatter 与相对链接检查，提示词效果未在宿主中实测。
 - [mm-disclosure 插件](plugins/hermes-agent/mm-disclosure/README.md)：离线单元测试 15 项通过；`hermes plugins doctor --ci` 通过（0.3.0，3 个 hook）。未验证宿主实际加载与新会话首轮注入，未对真实 Hindsight 服务端做端到端测试。
 - [custom-prompt-inject 插件](plugins/hermes-agent/custom-prompt-inject/README.md)：按 JSON 条件把自定义提示词注入 system prompt 或 user context；本地离线测试结果以组件 README 为准，未验证宿主实际加载与 WebUI/CLI/gateway 端到端送达。
 - [omh-dag-boundary 插件](plugins/hermes-agent/omh-dag-boundary/README.md)：离线单元测试 13 项通过。未验证宿主 `pre_tool_call` 改写行为、真实 OMH 派发链路与宿主版本兼容性。
