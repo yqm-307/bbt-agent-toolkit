@@ -1,7 +1,7 @@
 ---
 name: mwc-try-unblock
 description: "Use when agent 遇到错误、失败、依赖、权限、工具或上下文问题，准备停止、请求用户介入或说无法继续；先在现有工具、权限和授权内尝试解除阻塞，完成验证后继续，只有确需用户决定、外部权限或人工操作时才请求介入。"
-related_skills: [mwc-next-step, mwc-what-happened, mwc-bad-case]
+related_skills: [mwc-what-happened, mwc-bad-case]
 ---
 
 # mwc-try-unblock — 先尝试解除阻塞
@@ -54,8 +54,7 @@ related_skills: [mwc-next-step, mwc-what-happened, mwc-bad-case]
 
 ## 与相邻技能的分工
 
-- `mwc-next-step` 处理用户主动询问下一步。
-- `mwc-what-happened` 处理当前状态和进展汇报。
+- `mwc-what-happened` 处理用户主动询问的现状、进展和下一步。
 - `mwc-bad-case` 记录已经发生的过早停止、错误升级或用户被迫纠偏。
 
 ## 适配与验证
