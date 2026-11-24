@@ -31,6 +31,7 @@ python3 "$SKILL_DIR/scripts/git_closeout.py" ship [--title T] [--body-file F]   
 - `census`：列出每个 worktree 与本地分支是「进行中 / 已合并可清理 / 无独有提交」，以及基线是否落后、能否快进。squash 合并要靠 `gh` 里指向同一基线的 PR 记录识别，`--no-gh` 或 gh 读取失败时会显示为未合并。基线、默认分支与 main/master 不列为可清理。
 - `ship`：推送 → 开或复用 PR（只复用同仓、指向本基线的 PR）→ 等 CI → 合并（默认 squash，`--match-head-commit` 锁定刚验证的提交）→ 确认合并提交已在 `origin/<基线>` → 快进本地基线 → 清理 worktree、本地与远端分支。清理只删仍停在已合并 head 上的对象：worktree 已切走、分支或远端已推进时保留并说明。工作区不干净、没有新提交、在长期分支上、CI 失败或超时、PR 是草稿、分支保护拦截（`BLOCKED`/`BEHIND`/`DIRTY`）时停下并以退出码 2 说明原因；不强推、不强删、不绕过保护。`--no-merge` 停在合并前，`--keep-worktree` 不清理。
 - 用户一句「收口」「提 PR，CI 绿了合掉」就是对整条链的授权，不逐步再问；仓库规范写明不自行合并时，用 `--no-merge` 停在合并前再问。基线工作区有别人的未提交改动时只报告、不快进。
+- 例外：基线工作区的未提交改动正是刚合入远端的内容时（如先拆到 worktree 提交并 ship 的本地积压），先证明再快进：`HEAD` 是 `origin/<基线>` 的祖先；`git diff --binary HEAD` 导出的补丁，在用 `git read-tree origin/<基线>` 初始化的临时 `GIT_INDEX_FILE` 上能通过 `git apply --cached --reverse --check`；没有进程占用工作区。三项都成立才 `git stash push` → `git merge --ff-only origin/<基线>` → 成功后 `git stash drop`；任一项不成立仍只报告、不快进。未跟踪文件不在这项检查里，保持原样。
 - 输出 JSON 里的 PR 链接、合并 SHA、CI 结果（`pass`；`none` 表示宽限期内一直没观察到检查，不等于检查通过）就是交付证据，原样转述，不另写「已验证」。
 
 回归：`python3 -B -m unittest discover -s tests`（在本 skill 目录执行；真实 git + 本地裸远端 + `tests/gh_stub.py` 替身）。真实 GitHub 上的 `ship` 以首次实跑记录为准。
