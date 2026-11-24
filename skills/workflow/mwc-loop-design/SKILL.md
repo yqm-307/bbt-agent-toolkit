@@ -1,7 +1,7 @@
 ---
 name: mwc-loop-design
 description: "Use when 用户不知道如何设计能自我迭代的 loop、loop DAG 或并行反馈流程，或要把性能、调研、实验目标写成不可执行的 Loop DSL 并检查语法、环、退出和阻塞条件；提供设计方法、代码式描述和静态检查，不执行 loop。"
-related_skills: [mwc-sharpen, mwc-next-step]
+related_skills: [mwc-sharpen, mwc-what-happened]
 ---
 
 # mwc-loop-design — 用不可执行 DSL 设计可收敛的 loop

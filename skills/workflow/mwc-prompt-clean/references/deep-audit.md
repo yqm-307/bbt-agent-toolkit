@@ -1,16 +1,8 @@
----
-name: prompt-denoise
-description: "Use when 由 mwc-prompt-clean 进入深度模式，或明确要求多文件提示词降噪审计：提取句子清单，核对引用与近似重复，分析冲突、触发强度、过期和分层，并在用户采纳后定点修改。"
-related_skills: [mwc-prompt-clean]
----
+# 深度审计：提示词降噪
 
-# Prompt Denoise — 提示词降噪
+`mwc-prompt-clean` 深度模式的方法。入口、范围确认和采纳由 SKILL.md 负责；这里给句子清单、机械标记、分路分析、编号核对和验证脚本。
 
 降噪的目标是让每条规则只有一种读法，提高有效信息密度，不是压字数。判断标准是模型行为：会让模型犹豫、乱猜、不必要地停下或用力过猛的句子都是噪音。
-
-## 与 mwc-prompt-clean 的分工
-
-`mwc-prompt-clean` 是用户面对的统一入口，负责判断快速清理还是深度审计、确定范围、收集采纳项和汇报结果。本 skill 负责深度模式使用的句子清单、机械标记、分路分析、编号核对和验证脚本。过渡阶段继续保留本目录的 `references/`、`scripts/` 和 `tests/`，暂不复制到 `mwc-prompt-clean`。
 
 ## 为什么值得做
 
@@ -20,8 +12,8 @@ related_skills: [mwc-prompt-clean]
 
 ## 何时用，何时不用
 
-- 用：`mwc-prompt-clean` 的深度模式，或明确要求对多文件提示词、AGENTS.md、skill 包做冲突、引用、触发强度、过期和分层审计；也用于有频繁确认、忽略规则、过度设计或行为前后不一致症状的定期体检。
-- 不用：用户只想改一两处措辞、做少量格式整理或追加一个正反例；整仓体量、引用和重复的巡检交给仓库自己的健康度工具；从零写新提示词。
+- 用：多文件提示词、AGENTS.md、skill 包的冲突、引用、触发强度、过期和分层审计；也用于有频繁确认、忽略规则、过度设计或行为前后不一致症状的定期体检。
+- 不用：只改一两处措辞、少量格式整理或追加一个正反例，走快速模式；整仓体量、引用和重复的巡检交给仓库自己的健康度工具；从零写新提示词。
 
 ## 六类噪音
 
@@ -34,7 +26,7 @@ related_skills: [mwc-prompt-clean]
 | 过期 | 引用的文件、命令、事实已不符合现状 | 对照现状修正或删除 |
 | 放错层 | 常驻层装了按需内容，或写了能从仓库推断的事实 | 挪到 skill 或文档，常驻处留入口 |
 
-识别信号、正反例和不要误伤的情况见 [references/noise-taxonomy.md](references/noise-taxonomy.md)。
+识别信号、正反例和不要误伤的情况见 [noise-taxonomy.md](noise-taxonomy.md)。
 
 ## 流程
 
@@ -48,7 +40,7 @@ related_skills: [mwc-prompt-clean]
 ### 2. 机械提取（脚本）
 
 ```bash
-S=scripts/extract_inventory.py   # 相对本 skill 目录
+S=scripts/extract_inventory.py   # 相对 mwc-prompt-clean 目录
 OUT=<仓外临时目录>
 python3 "$S" <文件...> --root <仓库根> --out "$OUT/inventory.md"
 python3 "$S" <文件...> --root <仓库根> --flagged-only --out "$OUT/flagged.md"
@@ -66,7 +58,7 @@ python3 "$S" <文件...> --root <仓库根> --flagged-only --out "$OUT/flagged.m
 | B 触发与强度 | `flagged.md`，需要上下文时按编号回查 `inventory.md` | 模糊触发、过宽过强 |
 | C 现状与分层 | `inventory.md` + 缺失引用清单，可只读打开仓库核对具体事实 | 过期、放错层 |
 
-派发包原文和统一的发现格式见 [references/lane-briefs.md](references/lane-briefs.md)。目标不足约 80 句时不派子代理，主 agent 按三路顺序自己做；宿主不支持子代理时同样顺序做。
+派发包原文和统一的发现格式见 [lane-briefs.md](lane-briefs.md)。目标不足约 80 句时不派子代理，主 agent 按三路顺序自己做；宿主不支持子代理时同样顺序做。
 
 ### 4. 合并核对（主 agent）
 
@@ -74,7 +66,7 @@ python3 "$S" <文件...> --root <仓库根> --flagged-only --out "$OUT/flagged.m
 - A 路与 B 路常命中同一句（冲突往往落在确认类措辞上），按编号合并成一条，保留更具体的拟改文本。
 - 每条写清：类型、编号与原句、会怎样改变 agent 行为、拟改文本、置信度。
 - 有意设置的保障标「保留」；任何会放宽权限或减少确认的改动单独列出，用 P 编号，不进主表，不随「全采纳」生效。
-- 按对行为的影响排序，用 [references/lane-briefs.md](references/lane-briefs.md) 末尾的报告模板输出。
+- 按对行为的影响排序，用 [lane-briefs.md](lane-briefs.md) 末尾的报告模板输出。
 
 ### 5. 人工确认后落地
 
@@ -96,7 +88,7 @@ python3 "$S" <文件...> --root <仓库根> --flagged-only --out "$OUT/flagged.m
 
 - 方法本身不绑定宿主，完整流程仅在 Hermes 中实跑过；子代理并行是可选增强。
 - 脚本：Python 3.10+（实测 3.11、3.14），只用标准库；只读，除 `--out` 指定的文件外不写任何东西，不联网。
-- 首次使用验证：在本 skill 目录运行 `python3 -m unittest discover -s tests`。
+- 首次使用验证：在 mwc-prompt-clean 目录运行 `python3 -m unittest discover -s tests`。
 - 未验证：macOS、Windows、Python 3.10/3.12/3.13；其他宿主的子代理派发；改前改后的行为对比。
 
 ## 边界

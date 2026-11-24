@@ -22,7 +22,6 @@ Pipeline 是可持久化的流程图：**YAML 定义节点与连线，`control.p
 
 ## 公开流程
 
-- [Lint 候选识别](pub/lint-candidate/README.md)：对指定批次筛查、归并并验证静态 lint 候选，输出待人工审阅队列。
 - [提示词规则准入](pub/prompt-admission/README.md)：对单条候选做筛查、人审、观察和人工批准；只记录是否获准，不启用规则。
 
 ## YAML v1
