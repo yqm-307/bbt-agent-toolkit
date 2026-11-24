@@ -32,7 +32,7 @@ bbt-agent-toolkit/
 | `assurance` | `test-case-design` |
 | `engineering` | `context-prefix-slimming`、`git-worktree-ops` |
 | `knowledge` | `decision-matrix` |
-| `prompt-opt` | `prompt-denoise` |
+| `prompt-opt` | `prompt-denoise`（`mwc-prompt-clean` 的深度审计引擎） |
 | `workflow` | `chinese-documentation`、`harness-neutral-agent-prompts`、`mwc-bad-case`、`mwc-bro`、`mwc-chat-end`、`mwc-in-your-own-words`、`mwc-loop-design`、`mwc-next-step`、`mwc-prompt-clean`、`mwc-recall`、`mwc-sharpen`、`mwc-teach`、`mwc-try-unblock`、`mwc-what-happened`、`pipeline-operations` |
 
 分类仅用于导航，不改变 skill 名称；`mwc-*` 直接放在 `workflow/` 下，不额外增加族目录。
@@ -45,6 +45,7 @@ bbt-agent-toolkit/
 - `decision-matrix`：`scripts/check_fixtures.py` 未运行。
 - `git-worktree-ops`：无可执行入口；`.gitignore` 尾斜杠与同分支多 worktree 两条行为断言在临时仓中实测，未执行 push 与 `gh pr create`。
 - `prompt-denoise`：`tests/` 离线单元测试 11 项通过（Python 3.14.9、3.11）；`scripts/extract_inventory.py` 在两份真实提示词上实跑（一份 241 句；一份带 `--follow` 共 10 个文件、2162 句，触发清单过大提示）。完整流程在 Hermes 中对一份 241 句的角色提示词实跑一次：三路子代理并行产出 39 条发现，`--verify` 查出 1 条编号错误，合并为 26 处建议；未做改前改后的行为对比。未在 macOS、Windows 或 Python 3.10、3.12、3.13 上实测。
+- `mwc-prompt-clean`：作为提示词清理的用户入口，快速问题按三条标准处理，规则冲突、多文件审计和行为症状进入 `prompt-denoise` 深度方法；过渡阶段的脚本、参考资料和测试仍保留在 `prompt-denoise`。
 - [Pipeline](pipeline/README.md)：用 YAML 描述可回环的流程，用脚本推进文件状态；提示词规则准入是其中一条流程，`pipeline/viewer.html` 提供历史查看与只读回放。agent 操作入口见 [pipeline-operations](skills/workflow/pipeline-operations/SKILL.md)。
 - `mwc-chat-end`：`scripts/session_archive.py self-test` 实跑通过（Python 3.14.9）；WebApp 侧 `check` 在真实会话上运行，`hermes sessions archive` 的 `--include-open` 归档在一次性会话上实测并读回，当前会话做过归档→读回→恢复往返；压缩轮换后的回退路径与 WebUI 分支只有自检覆盖，真实 WebUI `check` / `archive` 未运行。
 - `mwc-bad-case`：`tests/test_bad_case_db.py` 实跑通过（3 项）；覆盖 SQLite 记录、查询、更新事件、软删除、恢复、过滤（含列表默认只显示待处理/处理中）和非法输入。未在真实 Hermes session 上验证压缩历史恢复、跨宿主触发或可视化前端。
