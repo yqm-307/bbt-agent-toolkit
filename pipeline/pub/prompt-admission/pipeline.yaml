@@ -1,0 +1,52 @@
+version: 1
+id: prompt-admission
+initial: screen
+max_steps: 16
+
+steps:
+  screen:
+    instruction: >-
+      每次筛查选一条可独立决定的候选，重复问题按不变量与适用范围合并。只使用用户指定且已脱敏的 bad case、Prompt 注意事项或失败样本。
+      按本流程 README 的产出约定写 artifacts/candidate-<revision>.yaml；证据引用这份候选卡，不把完整内容贴入状态。
+      按能直接观察问题的最低层选 lint、deterministic-eval、llm-eval、runtime-policy 或 manual-review；权限和外部写入由真实运行时控制。
+      若从后续节点回到这里，先按反馈修订，不覆盖原始证据。候选卡就绪才提交 prepared；材料不足就等待，或以 no-candidate 结束并记原因。
+    events:
+      prepared: review
+      no-candidate: closed
+
+  review:
+    instruction: >-
+      请人确认问题可重现、正反例能区分好坏、判定能看到真实行为、落点和误报成本可接受。
+      只有观察到人的决定才提交 accepted、revise 或 rejected；证据写决定和来源。等待期间不推进。
+    events:
+      accepted: monitor
+      revise: screen
+      rejected: closed
+
+  monitor:
+    instruction: >-
+      以只报告、不阻断的方式观测，初入可以没有数据。每批结果追加到 artifacts/observations.jsonl；未观测不填零。
+      证据不足继续等待，取得新样本可用 sampled 留痕。发现候选本身有问题走 revise 回筛查；有明确观测且足以交给人工判断才提交 ready。
+      若决定放弃，记录原因后走 withdrawn。
+    events:
+      sampled: monitor
+      revise: screen
+      ready: approve
+      withdrawn: closed
+
+  approve:
+    instruction: >-
+      请人核对 monitor 证据、启用范围及误报风险。观察到人工批准才提交 approved；补证据走 more-data，明确拒绝走 rejected。
+      证据只写决定与可定位的来源，不贴原始私有材料。
+    events:
+      approved: admitted
+      more-data: monitor
+      rejected: closed
+
+  admitted:
+    final: true
+    instruction: 候选已获人工批准，可移交对应执行器；此结果不启用规则，也不证明已生效。上线和退役走对应执行器的授权与验证流程。
+
+  closed:
+    final: true
+    instruction: 候选未获准入；历史保留原因。本次运行结束。

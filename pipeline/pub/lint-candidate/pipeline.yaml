@@ -1,0 +1,30 @@
+version: 1
+id: lint-candidate
+initial: screen
+max_steps: 2
+
+steps:
+  screen:
+    instruction: >-
+      按本流程 README 读取本次明确指定、已脱敏的输入批次。缺少指定批次或必读材料时停在本节点，不报无候选。
+      合并同一个问题的记录。先确认有可观察的后果，再看能否只靠文件判定；不要因为容易检查就建议加规则。
+      把每条输入的去向和理由记在 artifacts/screening.md，完成后提交 screened。
+    events:
+      screened: verify
+
+  verify:
+    instruction: >-
+      按 README 核对已有检查，试跑值得做的建议；确认写对的放过、写错的能定位，并说明可能误报什么。
+      把处理建议和理由写在 artifacts/review-queue.md 开头，确认可交人审的建议再写候选卡；有卡则提交 queued，
+      已完成整批检查但没有合格项则提交 no-candidate。检查受阻时不把阻塞记成无候选。
+    events:
+      queued: ready
+      no-candidate: empty
+
+  ready:
+    final: true
+    instruction: 候选已排入待人工审阅队列，未获准入，也未启用任何规则。
+
+  empty:
+    final: true
+    instruction: 本批次已筛查完毕，没有可交人工审阅的 lint 候选；原因见队列报告。
