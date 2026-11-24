@@ -1,7 +1,7 @@
 ---
 name: mwc-prompt-clean
 description: "Use when 需要清理 skill、AGENTS.md、角色文件等提示词：简单问题快速提炼、精简和规整，规则冲突或多文件审计进入深度降噪流程。触发词：mwc-prompt-clean、清理提示词、精简这个 skill、提示词降噪、规则冲突、去AI味、格式规整。"
-related_skills: [prompt-denoise, mwc-bad-case]
+related_skills: [mwc-bad-case]
 ---
 
 # mwc-prompt-clean — 提示词清理
@@ -22,16 +22,11 @@ related_skills: [prompt-denoise, mwc-bad-case]
 
 ### 深度模式
 
-目标涉及多个文件、规则冲突、重复确认、忽略规则、过度设计、过期引用或分层判断时，仍从本 skill 进入，但读取 `prompt-denoise` 作为审计方法和工具包。
-
-1. 用 `skill_view(name='prompt-denoise')` 读取深度方法及其引用资料。
-2. 按该方法的机械提取、分路分析、编号核对和人工采纳流程执行。
-3. 本 skill 负责和用户确定范围、解释候选、收集采纳项和交付改动清单；`prompt-denoise` 负责句子清单、标记、分路格式和验证脚本。
-4. 暂时保留 `prompt-denoise` 目录中的脚本、参考资料和测试。它们属于本模式的过渡实现，后续再迁入本 skill。
+目标涉及多个文件、规则冲突、重复确认、忽略规则、过度设计、过期引用或分层判断时，读 [references/deep-audit.md](references/deep-audit.md)，按其中的机械提取、分路分析、编号核对和人工采纳流程执行。本 skill 负责和用户确定范围、解释候选、收集采纳项和交付改动清单。
 
 ## 执行
 
-1. 先选择快速模式或深度模式。读目标文件；目标是软链或生成产物时，清理它的源文件。快速模式再读 [references/examples.md](references/examples.md)，深度模式按 `prompt-denoise` 的资料执行。
+1. 先选择快速模式或深度模式。读目标文件；目标是软链或生成产物时，清理它的源文件。快速模式再读 [references/examples.md](references/examples.md)，深度模式按 [references/deep-audit.md](references/deep-audit.md) 执行。
 2. 按三条标准逐段清理，拿不准的对照正反例。深度模式同时保留句子编号、证据和未覆盖范围。
 3. 输出清理版 + 改动清单（每条一行：改了什么、为什么）；文件大时清理版落到文件给路径。默认不改原文件，用户说写入才写；受保护文件按所在仓库门禁走。
 4. 目标已经干净就说「已经很干净，不需要清理」然后停，不为改而改。
@@ -47,5 +42,8 @@ related_skills: [prompt-denoise, mwc-bad-case]
 ## 边界
 
 - 不删安全、权限、不可逆操作的约束，不改变规则语义。
-- 规则冲突、频繁不必要确认、忽略规则等行为症状进入深度模式，读取 `prompt-denoise`；用户入口、范围确认和采纳仍由本 skill 负责。
+- 规则冲突、频繁不必要确认、忽略规则等行为症状进入深度模式。
 - 不授权提交、推送或修改运行配置。
+## 验证
+
+深度模式脚本只用 Python 3.10+ 标准库。检查：在本 skill 目录运行 `python3 -m unittest discover -s tests`。
