@@ -1,6 +1,6 @@
 ---
 name: git-worktree-ops
-description: "Use when committing or pushing from a linked worktree, hardening a repo's .gitignore, inventorying in-progress worktrees, or turning uncommitted changes into reviewable commit groups."
+description: "Use when committing or pushing from a linked worktree, closing out a branch through PR, CI and merge, hardening a repo's .gitignore, inventorying in-progress worktrees, or turning uncommitted changes into reviewable commit groups."
 version: "1.0.0"
 metadata:
   hermes:
@@ -18,6 +18,22 @@ metadata:
 - 不需要额外的配置文件或环境变量。
 - 文中的目录（`.worktrees/`、`web/`、`internal/static/`）和分支名（`feat/<topic>`）是**占位示例**，按目标仓库的实际布局替换，不要原样套用。
 - 验证记录：忽略规则陷阱与 worktree 行为在 git 2.53.0 / gh 2.46.0 的 Linux 环境实测过（见各节）；未在 Windows 原生 shell 与非 GitHub 远端（GitLab 等）实测，相关流程属未验证范围。
+
+## 0. 收口与盘点：先用现成命令
+
+`scripts/git_closeout.py`（Python 3.10+，只用标准库；`ship` 需要已登录的 `gh`）把第 1 节的推送/PR 与第 4 节的盘点做成了命令，固定流程不再逐步手敲：
+
+```bash
+python3 "$SKILL_DIR/scripts/git_closeout.py" census <repo>... [--fetch] [--json]   # 只读盘点
+python3 "$SKILL_DIR/scripts/git_closeout.py" ship [--title T] [--body-file F]       # 在功能分支的工作区里运行
+```
+
+- `census`：列出每个 worktree 与本地分支是「进行中 / 已合并可清理 / 无独有提交」，以及基线是否落后、能否快进。squash 合并要靠 `gh` 里指向同一基线的 PR 记录识别，`--no-gh` 或 gh 读取失败时会显示为未合并。基线、默认分支与 main/master 不列为可清理。
+- `ship`：推送 → 开或复用 PR（只复用同仓、指向本基线的 PR）→ 等 CI → 合并（默认 squash，`--match-head-commit` 锁定刚验证的提交）→ 确认合并提交已在 `origin/<基线>` → 快进本地基线 → 清理 worktree、本地与远端分支。清理只删仍停在已合并 head 上的对象：worktree 已切走、分支或远端已推进时保留并说明。工作区不干净、没有新提交、在长期分支上、CI 失败或超时、PR 是草稿、分支保护拦截（`BLOCKED`/`BEHIND`/`DIRTY`）时停下并以退出码 2 说明原因；不强推、不强删、不绕过保护。`--no-merge` 停在合并前，`--keep-worktree` 不清理。
+- 用户一句「收口」「提 PR，CI 绿了合掉」就是对整条链的授权，不逐步再问；仓库规范写明不自行合并时，用 `--no-merge` 停在合并前再问。基线工作区有别人的未提交改动时只报告、不快进。
+- 输出 JSON 里的 PR 链接、合并 SHA、CI 结果（`pass`；`none` 表示宽限期内一直没观察到检查，不等于检查通过）就是交付证据，原样转述，不另写「已验证」。
+
+回归：`python3 -B -m unittest discover -s tests`（在本 skill 目录执行；真实 git + 本地裸远端 + `tests/gh_stub.py` 替身）。真实 GitHub 上的 `ship` 以首次实跑记录为准。
 
 ## 1. worktree 内提交的正确方式
 
