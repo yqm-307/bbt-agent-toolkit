@@ -148,6 +148,15 @@
       "when": {
         "subagent": false
       }
+    },
+    {
+      "id": "artifacts-default",
+      "slot": "artifacts",
+      "prompt": "prompts/artifacts/default.md",
+      "inject_into": [
+        "system_prompt",
+        "user_context"
+      ]
     }
   ]
 }

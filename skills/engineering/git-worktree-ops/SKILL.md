@@ -56,6 +56,8 @@ git commit -m '<type>: <summary>'  # 6. 遵循仓库既有 commit 约定
 git log --oneline --decorate -4    # 7. 确认新提交在目标分支上
 git status --short --branch        # 8. 工作树干净
 ```
+仓库要求审查票时，推送前（包括运行 `ship` 前）核对票据的基线、目标提交和覆盖范围是否与实际审查证据一致。覆盖不足时先补审，不将定向复审填为全量通过。
+
 推送显式指定分支：`git push origin <branch>`（不要依赖当前分支猜测）。
 
 **push + 建 PR 均可在 worktree 内完成，无需回主仓：**
