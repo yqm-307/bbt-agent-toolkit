@@ -150,6 +150,15 @@
       }
     },
     {
+      "id": "taste-default",
+      "slot": "taste",
+      "prompt": "prompts/taste/default.md",
+      "inject_into": [
+        "system_prompt",
+        "user_context"
+      ]
+    },
+    {
       "id": "artifacts-default",
       "slot": "artifacts",
       "prompt": "prompts/artifacts/default.md",
