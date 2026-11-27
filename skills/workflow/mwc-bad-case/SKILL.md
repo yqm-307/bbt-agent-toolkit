@@ -1,7 +1,7 @@
 ---
 name: mwc-bad-case
 description: "Use when 用户要记录 bad case、坏体验、对 agent 的纠正或否定，或说「MWC-recordard bad case」；也在 mwc-chat-end 收尾时扫描当前 session 的完整可恢复历史。默认优先发现并记录事实，不自动优化 prompt。"
-related_skills: [mwc-chat-end, mwc-recall]
+related_skills: [mwc-chat-end, mwc-correct, mwc-recall]
 ---
 
 # mwc-bad-case — 记录坏体验，不急着优化
@@ -38,7 +38,7 @@ related_skills: [mwc-chat-end, mwc-recall]
 1. 先用宿主的 session 检索能力定位线索，再读命中前后的上下文。已压缩的摘要只是定位线索；需要准确原话、消息位置或时间时，用 `lcm_expand`、`lcm_load_session` 或宿主等价入口恢复原文。
 2. 按一次事件合并纠正链，提取多个独立事件。默认偏向保留可证据定位的候选；证据弱但确有不适信号时也可记录，设置较低 `confidence` 并标明待确认，不为了降低噪声而丢掉用户可能以后要看的材料。
 3. 自动写入 SQLite，`source` 使用 `chat-end`，保留 session 标识和消息引用。记录失败时如实报告失败原因，不能把“找到候选”说成“已经保存”。
-4. 在收尾检查点单独报告本次发现和写入的 bad case 数量、ID、历史覆盖范围与缺口。它不进入“沉淀经验 / 更新 prompt / 写长期记忆”的候选清单，也不改变用户选择的收尾动作。
+4. 在收尾检查点单独报告本次发现和写入的 bad case 数量、ID、历史覆盖范围与缺口。bad case 只作记录，不参与收尾选项。
 5. 扫描完成后停止在记录层。除非用户另行要求分析，否则不归纳共因、不推荐修复、不修改任何 prompt 或 skill。
 
 “用户什么都不说”不是“什么都不做”：在 chat end 的扫描阶段，按上述证据规则自行决定发现、合并、记录；没有可定位的坏体验时才报告未发现，不编造记录。
@@ -104,8 +104,9 @@ python3 "$SKILL_DIR/scripts/bad_case_db.py" --db "$DB" restore <case-id>
 ## 与相邻能力的分工
 
 - `mwc-chat-end` 负责在收尾检查中触发全 session 扫描并汇报覆盖范围；这里负责 bad case 的识别口径、记录内容和 SQLite CRUD。
+- `mwc-correct` 可以使用库里的记录：用户点名「处理最近的 bad case」或它自行查重复错误时，由它归并、定因、在仓库或规范里根治，并维护记录的状态流转（reviewing / resolved / ignored）。记录 bad case 不等于授权做这些事。
 - `mwc-recall` 负责恢复跨会话或共享历史的上下文；这里只读取当前 session 所需证据，不把 recall 结果本身当成 bad case。
-- prompt 优化、经验提炼和 skill 修改属于后续任务。记录 bad case 不等于授权做这些事。
+- 单条会话内的经验提炼属于 `mwc-reflect`，由用户显式点名发起，与 bad case 的自动记录互不替代。
 
 ## 适配、验证与边界
 

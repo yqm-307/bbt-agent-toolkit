@@ -1,12 +1,12 @@
 ---
 name: mwc-reflect
-description: "Use when 用户说 reflect、总结经验、把这次学到的沉淀下来，或 mwc-chat-end 选了总结经验；从当前会话提炼会改变下一次做法的经验，落到已有 skill、角色 prompt、项目规范或长期记忆，能由检查强制的转给 mwc-correct；列清单等用户采纳后才写。"
-related_skills: [mwc-chat-end, mwc-correct, mwc-bad-case]
+description: "Use when 用户说 reflect、总结经验、把这次学到的沉淀下来；从当前会话提炼会改变下一次做法的经验，落到已有 skill、角色 prompt、项目规范或长期记忆，能由检查强制的转给 mwc-correct；列清单等用户采纳后才写。只由用户显式点名发起，不在会话收尾流程内自动触发。"
+related_skills: [mwc-correct, mwc-bad-case]
 ---
 
 # mwc-reflect — 从一次会话提炼经验
 
-把当前会话里学到的东西变成对已有落点的定点修改，让下一个 agent 不再踩同一个坑。只提炼，不记录现场（归 `mwc-bad-case`），也不在仓库里根治重复错误（归 `mwc-correct`）。
+把当前会话里学到的东西变成对已有落点的定点修改，让下一个 agent 不再踩同一个坑。只提炼，不记录现场（归 `mwc-bad-case`），也不在仓库里根治重复错误（归 `mwc-correct`）。本 skill 只在用户显式点名时运行：会话收尾流程（`mwc-chat-end`）只负责记录 bad case，不再当场提炼经验。
 
 改编自 pstack `/reflect` 与 `/automate-me` 的筛选规则（MIT，Copyright (c) 2026 Lauren Tan，许可全文见 [pstack-LICENSE.txt](pstack-LICENSE.txt)，[来源](https://github.com/cursor/plugins/tree/ca782ed8b3c2c521cead8e1720d55c3a5dbf2347/pstack)）。
 
