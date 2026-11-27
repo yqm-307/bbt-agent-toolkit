@@ -391,6 +391,124 @@ class CloseoutCase(unittest.TestCase):
         self.assertEqual(self.remote_ref("trunk"), trunk_sha, "ship 不应推送 trunk")
 
 
+class CensusRootsCase(unittest.TestCase):
+    """census --roots 的行为契约：发现规则（.git 是目录才算主仓、找到即停、符号链接不跟随、
+    不可读/不存在静默跳过、同层按名排序 DFS）、深度上限（根=0 层，探到第 4 层）、
+    与位置参数合并（位置在前、仅 --roots 为空不回退 .）、按 realpath 去重。全部走真实 CLI。"""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tmp)
+
+    def make_repo(self, path):
+        path.mkdir(parents=True)
+        git(path, "init", "-q", "-b", "main")
+        (path / "f.txt").write_text("x\n")
+        git(path, "add", "f.txt")
+        git(path, "commit", "-q", "-m", "init")
+        return path
+
+    def census(self, *args, cwd=None):
+        """跑 census --no-gh --json，返回各报告 repo 的 resolve 后路径（顺序即报告顺序）。"""
+        proc = subprocess.run([sys.executable, str(TOOL), "census", "--no-gh", "--json", *args],
+                              cwd=cwd or self.tmp, env=GIT_ENV, capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        return [Path(r["repo"]).resolve() for r in json.loads(proc.stdout)]
+
+    def test_roots_finds_repos_sorted_dfs_and_skips_linked_worktree(self):
+        """发现规则：子目录里的主仓与浅层主仓都列出（同层按名排序 DFS，深的 a-sub 先报告）；
+        .git 是文件的 linked worktree 不单列。能抓住：把 .git 文件当主仓、不按名排序或按浅层优先。"""
+        root = self.tmp / "root"
+        repo_z = self.make_repo(root / "repo-z")
+        repo_b = self.make_repo(root / "a-sub" / "inner" / "repo-b")
+        wt_z = root / "wt-z"
+        git(repo_z, "worktree", "add", "-q", "--detach", str(wt_z))
+        self.assertTrue((wt_z / ".git").is_file(), "夹具前提：linked worktree 的 .git 必须是文件")
+        self.assertEqual(self.census("--roots", str(root)),
+                         [repo_b.resolve(), repo_z.resolve()])
+
+    def test_roots_does_not_descend_into_discovered_repo(self):
+        """找到主仓即停：主仓内部嵌套的真仓不被发现。能抓住：发现后继续下探的实现。"""
+        root = self.tmp / "root"
+        repo = self.make_repo(root / "repo-a")
+        self.make_repo(repo / "sub" / "nested-repo")
+        self.assertEqual(self.census("--roots", str(root)), [repo.resolve()])
+
+    def test_depth_limit_includes_level4_excludes_level5(self):
+        """深度边界：根=0 层，第 4 层的仓要发现，第 5 层的不发现。能抓住：>= 与 > 写反的 off-by-one。"""
+        root = self.tmp / "root"
+        at4 = self.make_repo(root / "d1" / "d2" / "d3" / "repo-at-4")
+        self.make_repo(root / "e1" / "e2" / "e3" / "e4" / "repo-at-5")
+        self.assertEqual(self.census("--roots", str(root)), [at4.resolve()])
+
+    def test_root_itself_is_depth0_candidate(self):
+        """根目录自身是主仓（第 0 层候选）也要被发现，且不再下探。能抓住：不检查根自身的实现。"""
+        root = self.tmp / "root"
+        self.make_repo(root)
+        self.make_repo(root / "inner" / "nested-repo")
+        self.assertEqual(self.census("--roots", str(root)), [root.resolve()])
+
+    def test_positional_overlapping_roots_reported_once_positional_first(self):
+        """合并与去重：同一仓经位置参数与 --roots 双重传入只盘一次，位置参数在前决定顺序。
+        位置参数 repo-b 按名字排在 repo-a 之后，顺序断言因此能区分「roots 在前」的错误实现。"""
+        root = self.tmp / "root"
+        repo_a = self.make_repo(root / "repo-a")
+        repo_b = self.make_repo(root / "repo-b")
+        self.assertEqual(self.census(str(root / "repo-b"), "--roots", str(root)),
+                         [repo_b.resolve(), repo_a.resolve()])
+
+    def test_dedup_uses_realpath_not_literal_path(self):
+        """去重按 realpath：位置参数经符号链接指向 repo-a，与 --roots 发现的 repo-a 只盘一次。
+        能抓住：按输入字符串去重的实现（会出 3 份报告）。"""
+        root = self.tmp / "root"
+        repo_a = self.make_repo(root / "repo-a")
+        repo_b = self.make_repo(root / "repo-b")
+        alias = self.tmp / "alias-to-repo-a"
+        alias.symlink_to(repo_a)
+        self.assertEqual(self.census(str(alias), "--roots", str(root)),
+                         [repo_a.resolve(), repo_b.resolve()])
+
+    def test_empty_roots_result_does_not_fall_back_to_cwd(self):
+        """仅给 --roots 且一个仓都没发现时输出空集，不回退当前目录。cwd 特意放在真仓里：
+        回退实现会产生 1 份报告而被抓住。"""
+        empty_root = self.tmp / "empty-root"
+        empty_root.mkdir()
+        cwd_repo = self.make_repo(self.tmp / "cwd-repo")
+        self.assertEqual(self.census("--roots", str(empty_root), cwd=cwd_repo), [])
+
+    def test_neither_repos_nor_roots_defaults_to_cwd(self):
+        """位置参数与 --roots 都未给时才默认当前目录。"""
+        cwd_repo = self.make_repo(self.tmp / "cwd-repo")
+        self.assertEqual(self.census(cwd=cwd_repo), [cwd_repo.resolve()])
+
+    def test_nonexistent_root_silently_skipped(self):
+        """不存在的根目录静默跳过：退出码 0、输出空集。能抓住：不兜 OSError 直接崩溃的实现。"""
+        self.assertEqual(self.census("--roots", str(self.tmp / "no-such-dir")), [])
+
+    def test_unreadable_dir_skipped_and_discovery_continues(self):
+        """不可读目录静默跳过且发现继续：blocked 按名排在 repo-a 之前先碰壁，repo-a 仍要找到。
+        能抓住：遇错中止整个遍历的实现。root 用户造不出不可读目录，跳过。"""
+        if hasattr(os, "geteuid") and os.geteuid() == 0:
+            self.skipTest("root 不受权限位约束，造不出不可读目录")
+        root = self.tmp / "root"
+        repo_a = self.make_repo(root / "repo-a")
+        blocked = root / "blocked"
+        blocked.mkdir()
+        blocked.chmod(0)
+        self.addCleanup(blocked.chmod, 0o700)  # 先于 rmtree 执行（LIFO），否则清理失败
+        self.assertEqual(self.census("--roots", str(root)), [repo_a.resolve()])
+
+    def test_symlinked_directory_not_followed(self):
+        """符号链接目录不跟随：链接指向 root 之外、且目标里的仓无法经真实路径发现，
+        避免 realpath 去重把「跟随了符号链接」的错误掩盖掉。能抓住：follow_symlinks=True 的实现。"""
+        elsewhere = self.tmp / "elsewhere"
+        self.make_repo(elsewhere / "repo-x")
+        root = self.tmp / "root"
+        root.mkdir()
+        (root / "link").symlink_to(elsewhere, target_is_directory=True)
+        self.assertEqual(self.census("--roots", str(root)), [])
+
+
 class GhCmdCase(unittest.TestCase):
     """gh_cmd 只有 origin 主机恰好是 github.com 时才加 -R。"""
 
