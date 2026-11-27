@@ -1,0 +1,88 @@
+{
+  "skill_name": "swarm-mode",
+  "version_note": "iteration-2 修订：提示词路径改为输入参数占位符（不绑定作者机器路径）；指标拆分为 delivery（真实交付质量/覆盖）与 routing（委派决策）两类，取代 iteration-1 的断言组；用例 id 与名称保持不变。",
+  "metric_axes": {
+    "delivery": "真实交付质量与覆盖：产物内容正确、覆盖完整、证据可核对（行数/逐文件计数/源码锚点）。与是否派发 worker 无关。",
+    "routing": "委派决策：扇出与否、切片方式是否与任务性质匹配并有依据。独立记分，不并入 delivery。确定性任务选择单脚本或主线单线是正确决策；为扇出而扇出不加分。"
+  },
+  "harness_note": "运行时由评测方为每组（with_skill / without_skill）追加各自的输出目录与自包含任务描述。改写类用例的输入在一次运行内会被消耗：两组不得共享同一份输入，必须各用预先隔离的输入副本。",
+  "evals": [
+    {
+      "id": 1,
+      "name": "bulk-todo-extraction",
+      "prompt": "目录 {{corpus_dir}} 下有 {{file_count}} 个 Python 文件。把里面所有 TODO 和 FIXME 注释收集成一份 CSV（文件路径、行号、类型、注释内容），整理好给我。",
+      "inputs": {
+        "corpus_dir": "只读输入：包含数十个 Python 文件的目录（建议 30 个左右，条目量足以体现批量）",
+        "file_count": "corpus_dir 内 Python 文件数"
+      },
+      "delivery": [
+        { "id": "coverage-full", "text": "CSV 覆盖全部文件的全部 TODO/FIXME 行：行数与用另一方法独立复算的基准逐条一致，不是 ≥90% 的近似阈值" },
+        { "id": "fields-correct", "text": "文件路径、行号、类型、注释内容四列与源文件逐条对得上，抽样核对留有记录" },
+        { "id": "single-merged-csv", "text": "最终是一份合并 CSV（允许有分片中间件），不是多份散落未合并的文件" }
+      ],
+      "routing": [
+        { "id": "decision-justified", "text": "扇出与否有判定依据。本任务是确定性文本抽取：单个脚本直接完成是合格且高效的正确决策" },
+        { "id": "no-reward-hard-fanout", "text": "不因未派发 worker 而扣分；无切片论证的硬性扇出不加分" }
+      ],
+      "routing_note": "确定性抽取应欣赏单脚本方案；routing 只判「决策与任务性质是否匹配并有依据」。"
+    },
+    {
+      "id": 2,
+      "name": "batch-mechanical-rewrite",
+      "prompt": "目录 {{md_dir}} 下有 {{md_count}} 个 markdown 提示词文件，把每个文件里所有『子代理』三个字改成『worker』，直接改文件，完成后给我一份清单：每个文件改了几处。",
+      "inputs": {
+        "md_dir": "本组专属的隔离输入副本：包含数十个 markdown 文件的目录（建议 20 个左右）",
+        "md_count": "md_dir 内 markdown 文件数"
+      },
+      "delivery": [
+        { "id": "replace-exact", "text": "只把『子代理』替换为『worker』，其余内容与输入副本逐字节一致（对照副本核验）" },
+        { "id": "coverage-all-files", "text": "全部文件处理完毕：处理后副本中『子代理』残留为 0" },
+        { "id": "per-file-counts-exact", "text": "清单逐文件给出精确处数，且与副本 diff 的实测处数一致，不是只报总数或估计值" }
+      ],
+      "routing": [
+        { "id": "decision-justified", "text": "机械精确替换是确定性任务：脚本/sed 单线完成是合格且更稳的正确决策；若扇出，需先论证切片互不重叠、worker 写入互不交叉" },
+        { "id": "no-reward-hard-fanout", "text": "清单与核对的完整性记在 delivery，派不派 worker 不改变 delivery 得分" }
+      ],
+      "routing_note": "评分前提：A/B 两组各用一份隔离输入副本（同一份输入被先行改写会污染后跑的一组）。"
+    },
+    {
+      "id": 3,
+      "name": "coroutine-design-survey",
+      "prompt": "我想快速了解 {{target_repo}} 这个仓的整体设计：协程调度模型、IO 复用、同步原语、网络层各自怎么实现的，模块之间什么关系。不用很深，给我一个能快速建立全貌的调研结果。",
+      "inputs": {
+        "target_repo": "只读输入：一个 C++ 协程库仓的本地路径，需同时含调度、IO、同步、网络四类模块；具体仓由评测方指定并随任务声明"
+      },
+      "delivery": [
+        { "id": "four-aspects", "text": "四个面（调度模型、IO 复用、同步原语、网络层）各有独立小节，不混写" },
+        { "id": "per-aspect-evidence", "text": "每一面至少给出一处可核对的源码锚点（文件路径+行号，或可检索的类/函数名），不是泛泛描述" },
+        { "id": "cross-module-relation", "text": "给出模块间关系：至少一条贯穿多模块的链路（如某同步原语挂起后由谁、经什么事件机制恢复），并说明依赖方向" },
+        { "id": "repo-boundary", "text": "区分仓内模块与外部依赖：引用到仓外符号（如事件循环后端）时注明来自其他仓/外部库" },
+        { "id": "merged-report", "text": "产出一份合并的全貌报告，而非各分片原始输出的罗列" }
+      ],
+      "routing": [
+        { "id": "fanout-appropriate", "text": "本例是扇出正例：四面相对独立、各自需要独立取证，按模块/子系统切片并行只读调研是恰当决策" },
+        { "id": "read-only-workers", "text": "若扇出：worker 只读源码，写入仅限本组输出目录" },
+        { "id": "small-repo-exception", "text": "若仓规模小到主线可一次读完后自行综合，允许不扇出，但 delivery 的证据要求不降低" }
+      ],
+      "routing_note": "多片独立取证是扇出的正当理由；判分看切片是否真实独立、证据是否落盘可核对，不看 worker 数量本身。"
+    },
+    {
+      "id": 4,
+      "name": "negative-single-bug-debug",
+      "prompt": "{{control_py}} 的调度逻辑里，输入边界的轮次计数和我的预期对不上（我印象里偶尔会少一轮）。帮我核实一下到底有没有这回事；如果有，原因是什么。只需要调查和解释，不用改代码。",
+      "inputs": {
+        "control_py": "待调查的单文件路径（单链因果推理对象），由评测方指定"
+      },
+      "delivery": [
+        { "id": "evidence-anchored", "text": "结论引用具体代码位置（文件+行号/函数名），推理链完整可复查" },
+        { "id": "verdict-clear", "text": "给出明确结论：问题存在与否、成因是什么；证据不足或无法复现时如实列出剩余假设，不编造根因" },
+        { "id": "no-code-change", "text": "不改动被调查的代码" }
+      ],
+      "routing": [
+        { "id": "no-fanout", "text": "单因调查是单链推理，不应扇出蜂群：主线自己读代码完成。拆成并行子代理排查记为路由错误" },
+        { "id": "no-presupposed-bug", "text": "不把「存在 bug」当结论前提：先核实现象是否成立再谈成因" }
+      ],
+      "routing_note": "反例用例。任务以「疑点核实」陈述，不再预设有 bug；考察的是单线调查与克制路由。"
+    }
+  ]
+}
