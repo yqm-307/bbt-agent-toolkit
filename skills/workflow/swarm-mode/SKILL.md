@@ -30,4 +30,6 @@ description: "Use when 批量工作或跨模块调研可拆成独立切片，用
 
 **入口与验证**：在能派发并回收并行子任务的宿主加载 `swarm-mode`；子任务权限、限额与项目门禁沿用宿主。本 skill 不安装运行时或调用外部 API。[评测用例](evals/evals.json) 分别检验脚本直做、独立调查扇出和单链调试不扇出。跨宿主行为须在相应宿主实测。
 
+评测或自测「是否真的会派发」时，执行者必须是主会话：子代理的工具集里没有派发能力，用它跑只会得到假阴性，把「没派」误当成 skill 没生效。
+
 设计参考：[Google Antigravity `/swarm`](https://antigravity.google/docs/swarm) 的不冲突分工；[pstack `/swarm`](https://github.com/cursor/plugins/blob/main/pstack/skills/swarm/SKILL.md) 的切片覆盖与缺口处理。
