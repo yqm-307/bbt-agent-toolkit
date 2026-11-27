@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
-"""git-closeout：盘点仓库收尾状态（census），把一个分支走完 PR 收口（ship）。
+"""git-closeout：盘点仓库收尾状态（census），安全快进本地基线（sync），把一个分支走完 PR 收口（ship）。
 
-census 只读（--fetch 时只更新远端跟踪引用）。ship 依次推送、开或复用 PR、等 CI、合并、
-快进本地基线、清理 worktree 与分支；每一步回读真实状态，条件不满足就停下并说明原因。
+census 只读（--fetch 时只更新远端跟踪引用）。sync 快进本地基线：干净则 ff，未提交改动经覆盖证明
+才 stash 快进，其余情况停下。ship 依次推送、开或复用 PR、等 CI、合并、快进本地基线、清理 worktree
+与分支；每一步回读真实状态，条件不满足就停下并说明原因。
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -195,6 +197,74 @@ def print_census(reports: list[dict]) -> None:
             print(f"- [{row['kind']}] {row['branch'] or '(detached)'}：{row['state']}{where}")
 
 
+# ---------- sync ----------
+
+def stash_overlay_proof(main_wt: Path, base: str) -> bool:
+    """基线工作区未提交改动正好等于 origin/<base> 相对 HEAD 的内容时返回真。
+
+    两项都成立才允许 stash 快进：HEAD 是 origin/<base> 的祖先；`git diff --binary HEAD`
+    导出的补丁能在 read-tree origin/<base> 的临时索引上反向应用。
+    """
+    if run(["git", "merge-base", "--is-ancestor", "HEAD", f"origin/{base}"], main_wt,
+           check=False).returncode:
+        return False
+    # 补丁不能用 git() 的 strip：末尾换行是补丁语法的一部分
+    patch = run(["git", "diff", "--binary", "HEAD", "--"], main_wt).stdout
+    if not patch.strip():
+        return False
+    with tempfile.TemporaryDirectory() as tmp:
+        env = {**os.environ, "GIT_INDEX_FILE": str(Path(tmp) / "index")}
+        if subprocess.run(["git", "read-tree", f"origin/{base}"], cwd=main_wt, env=env,
+                          capture_output=True, text=True).returncode:
+            return False
+        proc = subprocess.run(["git", "apply", "--cached", "--reverse", "--check"],
+                              cwd=main_wt, env=env, input=patch, capture_output=True, text=True)
+        return proc.returncode == 0
+
+
+
+def sync_base(repo: Path, base: str | None) -> dict:
+    top = Path(git(repo, "rev-parse", "--show-toplevel"))
+    base = base or remote_default(top) or default_base(top)
+    git(top, "fetch", "-q", "origin", base)
+    remote = sha_of(top, f"origin/{base}")
+    holder = next((wt for wt in worktrees(top) if wt["branch"] == base), None)
+    result = {"repo": str(top), "base": base, "remote": remote}
+    if holder is None:
+        proc = run(["git", "fetch", "-q", "origin", f"{base}:{base}"], top, check=False)
+        if proc.returncode:
+            raise Stop(f"本地 {base} 未更新：{proc.stderr.strip()}")
+        result["action"] = f"本地 {base} 已更新到 {remote[:12]}（无 checkout）"
+        return result
+    path = holder["path"]
+    head = sha_of(path, "HEAD")
+    behind = int(git(path, "rev-list", "--count", f"HEAD..origin/{base}"))
+    ahead = int(git(path, "rev-list", "--count", f"origin/{base}..HEAD"))
+    if ahead:
+        raise Stop(f"{path} 的 {base} 有 {ahead} 个未推送提交，先处理，不快进")
+    if not behind:
+        result["action"] = f"{base} 已与远端一致（{head[:12]}）"
+        return result
+    if not dirty_count(path):
+        proc = run(["git", "merge", "--ff-only", "-q", f"origin/{base}"], path, check=False)
+        if proc.returncode:
+            raise Stop(f"{base} 无法快进：{proc.stderr.strip()}")
+        result["action"] = f"{path} 的 {base} 已快进 {behind} 个提交到 {remote[:12]}"
+        return result
+    if not stash_overlay_proof(path, base):
+        raise Stop(f"{path} 有未提交改动且不是刚合入远端内容的覆盖，先保全再同步；落后 {behind} 个提交")
+    git(path, "stash", "push", "-q", "-m", "git-closeout sync overlay")
+    proc = run(["git", "merge", "--ff-only", "-q", f"origin/{base}"], path, check=False)
+    if proc.returncode:
+        pop = run(["git", "stash", "pop", "-q"], path, check=False)
+        restored = "未提交改动已还原" if pop.returncode == 0 else "改动仍在 stash 中，需手动 stash pop"
+        raise Stop(f"{base} 无法快进：{proc.stderr.strip()}（{restored}）")
+    git(path, "stash", "drop", "-q")
+    result["action"] = (f"{path} 的 {base} 已快进 {behind} 个提交到 {remote[:12]}；"
+                        "未提交改动经覆盖证明后随快进消除")
+    return result
+
+
 # ---------- ship ----------
 
 def wait_checks(repo: Path, number: int, timeout: int, no_ci_grace: int, interval: int) -> str:
@@ -377,6 +447,10 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("--no-gh", action="store_true", help="不用 gh 识别 squash 合并")
     c.add_argument("--json", action="store_true", help="输出 JSON")
 
+    y = sub.add_parser("sync", help="把本地基线安全快进到 origin/<base>")
+    y.add_argument("--repo", default=".", help="仓库内任意路径，默认当前目录")
+    y.add_argument("--base", help="基线分支，默认 origin/HEAD 指向的分支")
+
     s = sub.add_parser("ship", help="推送当前分支并走完 PR → CI → 合并 → 更新基线 → 清理")
     s.add_argument("--repo", default=".", help="分支所在的工作区，默认当前目录")
     s.add_argument("--base", help="基线分支，默认 origin/HEAD 指向的分支")
@@ -397,6 +471,8 @@ def main(argv: list[str] | None = None) -> int:
                 print(json.dumps(reports, ensure_ascii=False, indent=2))
             else:
                 print_census(reports)
+        elif args.cmd == "sync":
+            print(json.dumps(sync_base(Path(args.repo), args.base), ensure_ascii=False, indent=2))
         else:
             print(json.dumps(ship(args), ensure_ascii=False, indent=2))
     except Stop as exc:
