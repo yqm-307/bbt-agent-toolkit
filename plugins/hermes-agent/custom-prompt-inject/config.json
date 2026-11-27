@@ -126,6 +126,19 @@
       }
     },
     {
+      "id": "collab-when-astra",
+      "slot": "collab-when",
+      "prompt": "prompts/collab-when/astra.md",
+      "inject_into": [
+        "system_prompt",
+        "user_context"
+      ],
+      "when": {
+        "subagent": false,
+        "model_regex": "(?:^|/)gpt-6\\.2-astra(?:$|[-/])"
+      }
+    },
+    {
       "id": "collab-default",
       "slot": "collab",
       "prompt": "prompts/collab/default.md",
