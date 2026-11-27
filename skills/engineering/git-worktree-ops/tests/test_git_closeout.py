@@ -135,6 +135,78 @@ class CloseoutCase(unittest.TestCase):
         self.assertIn("未提交改动", proc.stderr)
         self.assertIsNone(self.remote_ref("feat/x"))
 
+    # ---------- sync：基线安全快进 ----------
+
+    def advance_remote_main(self):
+        """在另一个克隆里向远端 main 推一个提交，本地 main 因此落后。"""
+        other = self.tmp / "advancer"
+        git(self.tmp, "clone", "-q", str(self.remote), str(other))
+        (other / "a.txt").write_text("a\nremote addition\n")
+        git(other, "add", "a.txt")
+        git(other, "commit", "-q", "-m", "advance main")
+        git(other, "push", "-q", "origin", "main")
+        return git(other, "rev-parse", "HEAD")
+
+    def sync(self, *extra, cwd=None):
+        return self.cli("sync", *extra, cwd=cwd or self.main)
+
+    def test_sync_fastforwards_clean_baseline(self):
+        remote_head = self.advance_remote_main()
+        proc = self.sync()
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        result = json.loads(proc.stdout)
+        self.assertIn("快进", result["action"])
+        self.assertEqual(git(self.main, "rev-parse", "main"), remote_head)
+
+    def test_sync_noop_when_up_to_date(self):
+        proc = self.sync()
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("一致", json.loads(proc.stdout)["action"])
+
+    def test_sync_stops_on_dirty_baseline(self):
+        self.advance_remote_main()
+        (self.main / "dirty.txt").write_text("dirty\n")
+        proc = self.sync()
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("未提交改动", proc.stderr)
+        self.assertNotEqual(git(self.main, "rev-parse", "main"), self.remote_ref("main"))
+
+    def test_sync_stops_on_unpushed_local_commits(self):
+        self.advance_remote_main()
+        (self.main / "local.txt").write_text("local\n")
+        git(self.main, "add", "local.txt")
+        git(self.main, "commit", "-q", "-m", "local only")
+        proc = self.sync()
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("未推送提交", proc.stderr)
+
+    def test_sync_overlay_dirty_fastforwards_and_drops_stash(self):
+        """未提交改动正好是远端新增内容的覆盖：stash 证明后快进，改动随快进消除。"""
+        remote_head = self.advance_remote_main()
+        # 覆盖语义是：diff HEAD 等于远端相对 HEAD 的变化。直接复制远端那笔提交的净变化（远端改的是 a.txt）
+        git(self.main, "fetch", "-q", "origin", "main")
+        patch = subprocess.run(["git", "diff", "--binary", "HEAD", "origin/main"],
+                               cwd=self.main, env=self.env, capture_output=True, text=True,
+                               check=True).stdout
+        subprocess.run(["git", "apply"], cwd=self.main, env=self.env, input=patch,
+                       capture_output=True, text=True, check=True)
+        proc = self.sync()
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        result = json.loads(proc.stdout)
+        self.assertIn("覆盖", result["action"])
+        self.assertEqual(git(self.main, "rev-parse", "main"), remote_head)
+        self.assertEqual(git(self.main, "stash", "list"), "")
+        self.assertEqual(git(self.main, "status", "--porcelain"), "")
+
+    def test_sync_dirty_non_overlay_stops(self):
+        """未提交改动与远端无关：不证明，不快进。"""
+        self.advance_remote_main()
+        (self.main / "a.txt").write_text("modified locally\n")
+        proc = self.sync()
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("未提交改动", proc.stderr)
+        self.assertEqual((self.main / "a.txt").read_text(), "modified locally\n")
+
     def test_census_reads_worktree_and_merged_branch(self):
         (self.wt / "c.txt").write_text("c\n")
         git(self.main, "branch", "old/merged", "main")
