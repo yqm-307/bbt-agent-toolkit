@@ -128,6 +128,33 @@ def merged_into(repo: Path, rev: str, base: str, branch: str | None, use_gh: boo
 
 # ---------- census ----------
 
+def repos_under(root: Path) -> list[Path]:
+    """根目录下（含根目录自身）的主仓：`.git` 是目录才算，是文件的是 linked worktree，由其主仓的
+    census 覆盖，不单列；找到主仓不再往其内部下探，目录不可读跳过，符号链接不跟随（防环）。
+
+    深度上限：根目录自身算第 0 层，向下探到第 4 层为止——主仓通常在代码根下一两层，4 层封顶避免整盘扫描。
+    """
+    found: list[Path] = []
+
+    def walk(dir_: Path, depth: int) -> None:
+        try:
+            with os.scandir(dir_) as it:
+                entries = sorted(it, key=lambda e: e.name)
+        except OSError:
+            return
+        if (dir_ / ".git").is_dir():
+            found.append(dir_)
+            return
+        if depth >= 4:
+            return
+        for entry in entries:
+            if entry.is_dir(follow_symlinks=False):
+                walk(Path(entry.path), depth + 1)
+
+    walk(root, 0)
+    return found
+
+
 def census_repo(repo: Path, fetch: bool, use_gh: bool) -> dict:
     repo = Path(git(repo, "rev-parse", "--show-toplevel"))
     fetch_error = None
@@ -442,7 +469,8 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     c = sub.add_parser("census", help="只读盘点仓库的 worktree、分支与基线状态")
-    c.add_argument("repos", nargs="*", default=["."], help="仓库路径，默认当前目录")
+    c.add_argument("repos", nargs="*", help="仓库路径；与 --roots 均未给时默认当前目录")
+    c.add_argument("--roots", nargs="+", metavar="DIR", help="在根目录下（深度 ≤ 4）发现主仓，与 repos 合并去重")
     c.add_argument("--fetch", action="store_true", help="先 git fetch --prune 再比较")
     c.add_argument("--no-gh", action="store_true", help="不用 gh 识别 squash 合并")
     c.add_argument("--json", action="store_true", help="输出 JSON")
@@ -466,7 +494,17 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         if args.cmd == "census":
-            reports = [census_repo(Path(r), args.fetch, not args.no_gh) for r in args.repos]
+            repos = [Path(r) for r in args.repos or ()]
+            if not repos and not args.roots:
+                repos = [Path(".")]
+            for root in args.roots or ():
+                repos.extend(repos_under(Path(root)))
+            reports, seen = [], set()  # 按 realpath 去重：同一仓经不同路径传入只盘一次
+            for repo in repos:
+                key = str(repo.resolve())
+                if key not in seen:
+                    seen.add(key)
+                    reports.append(census_repo(repo, args.fetch, not args.no_gh))
             if args.json:
                 print(json.dumps(reports, ensure_ascii=False, indent=2))
             else:
