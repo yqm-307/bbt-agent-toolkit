@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""git-closeout：盘点仓库收尾状态（census），安全快进本地基线（sync），把一个分支走完 PR 收口（ship）。
+"""git-closeout：盘点仓库收尾状态（census），安全快进本地基线（sync），把一个分支走完 PR 收口（ship），批量清理已合并对象（clean）。
 
 census 只读（--fetch 时只更新远端跟踪引用）。sync 快进本地基线：干净则 ff，未提交改动经覆盖证明
 才 stash 快进，其余情况停下。ship 依次推送、开或复用 PR、等 CI、合并、快进本地基线、清理 worktree
@@ -173,6 +173,7 @@ def census_repo(repo: Path, fetch: bool, use_gh: bool) -> dict:
             row["state"] = "登记失效（prunable），确认目录后再 git worktree prune"
             rows.append(row)
             continue
+        row["head"] = wt.get("HEAD", "")
         row["dirty"] = dirty_count(path)
         if not has_base:
             row["state"] = f"找不到 {base_ref}，无法比较"
@@ -209,7 +210,7 @@ def census_repo(repo: Path, fetch: bool, use_gh: bool) -> dict:
                 continue
             head = sha_of(repo, branch)
             merged = merged_into(repo, head, base, branch, use_gh)
-            rows.append({"kind": "branch", "path": "", "branch": branch,
+            rows.append({"kind": "branch", "path": "", "branch": branch, "head": head,
                          "state": "已合并，可删除" if merged else "未合并"})
     return {"repo": str(repo), "base": base, "fetch_error": fetch_error, "items": rows}
 
@@ -361,19 +362,9 @@ def update_base(repo: Path, main_wt: Path, base: str) -> str:
     return f"{holder['path']} 的 {base} 已快进到 {remote[:12]}"
 
 
-def cleanup(main_wt: Path, top: Path, branch: str, head: str) -> list[str]:
-    """只删仍停在已合并 head 上的对象；等 CI 期间任何一处变了（切走、推进、被别处检出）就保留并说明。"""
-    # ponytail: git 没有「仍在 X 才删」的原子操作，回读与删除之间留有毫秒级窗口。不会丢数据：
-    # worktree remove 不带 --force，有改动或未跟踪文件会拒绝；本地分支按 OID 条件删除，删掉的只是已合并的指针。
-    if top == main_wt:
-        return [f"分支 {branch} 检出在主工作区，未切换也未删除"]
-    wt = next((w for w in worktrees(main_wt) if w["path"] == top), None)
-    if wt is None or wt["branch"] != branch or wt.get("HEAD") != head:
-        return [f"worktree {top} 已不在 {branch}@{head[:12]}，未清理"]
-    proc = run(["git", "worktree", "remove", str(top)], main_wt, check=False)
-    if proc.returncode != 0:
-        return [f"worktree 未删除（不强删）：{proc.stderr.strip()}；含 submodule 时按 git-worktree-ops 第 4 节处理"]
-    notes = [f"已删除 worktree {top}"]
+def delete_branch(main_wt: Path, branch: str, head: str) -> list[str]:
+    """按 OID 条件删本地分支、按 force-with-lease 删远端分支；任何一处已推进或仍被检出就保留并说明。"""
+    notes = []
     if any(w["branch"] == branch for w in worktrees(main_wt)):
         notes.append(f"本地分支 {branch} 仍被其他工作区检出，未删除")
     elif run(["git", "update-ref", "-d", f"refs/heads/{branch}", head], main_wt, check=False).returncode == 0:
@@ -389,6 +380,21 @@ def cleanup(main_wt: Path, top: Path, branch: str, head: str) -> list[str]:
                     "origin", f":refs/heads/{branch}"], main_wt, check=False)
         notes.append(f"已删除远端分支 {branch}" if proc.returncode == 0 else f"远端分支未删除：{proc.stderr.strip()}")
     return notes
+
+
+def cleanup(main_wt: Path, top: Path, branch: str, head: str) -> list[str]:
+    """只删仍停在已合并 head 上的对象；等 CI 期间任何一处变了（切走、推进、被别处检出）就保留并说明。"""
+    # ponytail: git 没有「仍在 X 才删」的原子操作，回读与删除之间留有毫秒级窗口。不会丢数据：
+    # worktree remove 不带 --force，有改动或未跟踪文件会拒绝；本地分支按 OID 条件删除，删掉的只是已合并的指针。
+    if top == main_wt:
+        return [f"分支 {branch} 检出在主工作区，未切换也未删除"]
+    wt = next((w for w in worktrees(main_wt) if w["path"] == top), None)
+    if wt is None or wt["branch"] != branch or wt.get("HEAD") != head:
+        return [f"worktree {top} 已不在 {branch}@{head[:12]}，未清理"]
+    proc = run(["git", "worktree", "remove", str(top)], main_wt, check=False)
+    if proc.returncode != 0:
+        return [f"worktree 未删除（不强删）：{proc.stderr.strip()}；含 submodule 时按 git-worktree-ops 第 4 节处理"]
+    return [f"已删除 worktree {top}", *delete_branch(main_wt, branch, head)]
 
 
 def read_pr(repo: Path, branch: str, base: str, head: str, tries: int = 10, interval: int = 2) -> dict | None:
@@ -464,6 +470,139 @@ def ship(args: argparse.Namespace) -> dict:
     return result
 
 
+# ---------- clean ----------
+
+CLEANABLE_WT_STATES = {"已合并且干净，可清理", "没有独有提交且干净，删除不丢内容"}
+
+
+def occupying_pids(path: Path) -> list[int] | None:
+    """cwd 落在 path 内（含自身）的进程 pid；无 /proc 时返回 None 表示检查不可用。
+
+    ponytail: 只查 cwd，不查打开的 fd——cwd 在别处但开着 worktree 内文件的进程查不到；
+    需要更严时升级为扫 /proc/*/fd。同机多 agent 场景下 cwd 检查足以挡住正在里面干活的进程。
+    """
+    proc_dir = Path("/proc")
+    if not proc_dir.is_dir():
+        return None
+    target = str(path.resolve())
+    pids = []
+    for entry in proc_dir.iterdir():
+        if not entry.name.isdigit():
+            continue
+        try:
+            cwd = os.readlink(entry / "cwd")
+        except OSError:
+            continue  # 进程刚退出或无权限读，跳过
+        if cwd == target or cwd.startswith(target + os.sep):
+            pids.append(int(entry.name))
+    return pids
+
+
+def collect_repos(repos: list[str], roots: list[str] | None) -> list[Path]:
+    """位置参数与 --roots 合并，按 realpath 去重（同一仓经不同路径传入只处理一次）；都未给时默认当前目录。"""
+    out = [Path(r) for r in repos or ()]
+    if not out and not roots:
+        out = [Path(".")]
+    for root in roots or ():
+        out.extend(repos_under(Path(root)))
+    seen, uniq = set(), []
+    for repo in out:
+        key = str(repo.resolve())
+        if key not in seen:
+            seen.add(key)
+            uniq.append(repo)
+    return uniq
+
+
+def clean_repo(repo: Path, apply: bool, use_gh: bool) -> dict:
+    """按 census 分类批量清理安全集：干净且已合并（或无独有提交）的 worktree、本地与远端分支。
+
+    默认 dry-run 只出清单；--apply 才删除，删除沿用 ship 的保护（remove 不带 force、本地按 OID
+    条件删、远端 force-with-lease 且 tip 必须等于盘点时的已合并 head），另查进程占用。基线、
+    main/master 与长期分支永不删除；保留集只报告不动。清完 prune 失效登记并快进基线。
+    """
+    rep = census_repo(repo, fetch=True, use_gh=use_gh)
+    repo = Path(rep["repo"])
+    main_wt = worktrees(repo)[0]["path"]
+    base = rep["base"]
+    actions, held = [], []
+    wt_targets, branch_targets, prunable = [], [], []
+    for row in rep["items"]:
+        if row["kind"] == "main":
+            continue  # 主工作区与基线永远不动，基线更新交给 sync
+        state = row.get("state", "")
+        if row["kind"] == "worktree":
+            if state.startswith("登记失效"):
+                prunable.append(row)
+            elif state not in CLEANABLE_WT_STATES:
+                held.append(f"worktree {row['path']}（{row['branch'] or 'detached'}）：{state}")
+            elif (pids := occupying_pids(Path(row["path"]))) is None:
+                held.append(f"worktree {row['path']}：占用检查不可用（无 /proc），保守保留")
+            elif pids:
+                held.append(f"worktree {row['path']}：进程占用 pid={','.join(map(str, pids))}，保留")
+            else:
+                wt_targets.append(row)
+        elif row["kind"] == "branch" and state == "已合并，可删除":
+            branch_targets.append(row)
+        else:
+            held.append(f"分支 {row['branch']}：{state}")
+
+    for row in wt_targets:
+        label = f"worktree {row['path']}" + (f"（分支 {row['branch']}）" if row["branch"] else "（detached）")
+        if not apply:
+            actions.append(f"将删除 {label}：{row['state']}")
+            if row["branch"]:
+                actions.append(f"将删除本地与远端分支 {row['branch']}（存在且仍停在已合并 head 时）")
+            continue
+        wt = next((w for w in worktrees(repo) if w["path"] == Path(row["path"])), None)
+        if wt is None or wt.get("HEAD") != row.get("head"):
+            actions.append(f"worktree {row['path']} 已不在盘点时的 head，未清理")
+            continue
+        if row["branch"]:
+            actions.extend(cleanup(main_wt, Path(row["path"]), row["branch"], row["head"]))
+        else:
+            proc = run(["git", "worktree", "remove", row["path"]], repo, check=False)
+            actions.append(f"已删除 worktree {row['path']}（detached）" if proc.returncode == 0
+                           else f"worktree 未删除（不强删）：{proc.stderr.strip()}")
+    for row in branch_targets:
+        if not apply:
+            actions.append(f"将删除本地与远端分支 {row['branch']}：{row['state']}")
+        else:
+            actions.extend(delete_branch(main_wt, row["branch"], row["head"]))
+    if prunable:
+        if apply:
+            run(["git", "worktree", "prune"], repo)
+            actions.append(f"已 prune {len(prunable)} 条失效 worktree 登记")
+        else:
+            actions.append(f"将 prune {len(prunable)} 条失效 worktree 登记")
+
+    if apply:
+        try:
+            main_note = sync_base(repo, base)["action"]
+        except Stop as exc:
+            main_note = f"main 未快进：{exc}"
+    else:
+        main_state = next((i.get("state", "") for i in rep["items"] if i["kind"] == "main"), "")
+        main_note = f"基线现状：{main_state}（--apply 时快进）" if main_state else "dry-run 不动基线"
+    return {"repo": str(repo), "base": base, "apply": apply, "fetch_error": rep["fetch_error"],
+            "actions": actions, "held": held, "main": main_note}
+
+
+def print_clean(reports: list[dict]) -> None:
+    for rep in reports:
+        mode = "apply" if rep["apply"] else "dry-run"
+        print(f"## {rep['repo']}（基线 {rep['base']}，{mode}）")
+        if rep["fetch_error"]:
+            print(f"- fetch 失败，以下按本地已有的远端引用判读：{rep['fetch_error']}")
+        for line in rep["actions"]:
+            print(f"- {line}")
+        for line in rep["held"]:
+            print(f"- 保留 {line}")
+        print(f"- {rep['main']}")
+        if not rep["actions"] and not rep["held"]:
+            print("- 无可清理对象")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -478,6 +617,13 @@ def main(argv: list[str] | None = None) -> int:
     y = sub.add_parser("sync", help="把本地基线安全快进到 origin/<base>")
     y.add_argument("--repo", default=".", help="仓库内任意路径，默认当前目录")
     y.add_argument("--base", help="基线分支，默认 origin/HEAD 指向的分支")
+
+    cl = sub.add_parser("clean", help="批量清理已合并的 worktree 与分支并快进基线；默认 dry-run 只出清单")
+    cl.add_argument("repos", nargs="*", help="仓库路径；与 --roots 均未给时默认当前目录")
+    cl.add_argument("--roots", nargs="+", metavar="DIR", help="在根目录下（深度 ≤ 4）发现主仓，与 repos 合并去重")
+    cl.add_argument("--apply", action="store_true", help="真正执行删除；不给则只出清单")
+    cl.add_argument("--no-gh", action="store_true", help="不用 gh 识别 squash 合并")
+    cl.add_argument("--json", action="store_true", help="输出 JSON")
 
     s = sub.add_parser("ship", help="推送当前分支并走完 PR → CI → 合并 → 更新基线 → 清理")
     s.add_argument("--repo", default=".", help="分支所在的工作区，默认当前目录")
@@ -494,23 +640,21 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         if args.cmd == "census":
-            repos = [Path(r) for r in args.repos or ()]
-            if not repos and not args.roots:
-                repos = [Path(".")]
-            for root in args.roots or ():
-                repos.extend(repos_under(Path(root)))
-            reports, seen = [], set()  # 按 realpath 去重：同一仓经不同路径传入只盘一次
-            for repo in repos:
-                key = str(repo.resolve())
-                if key not in seen:
-                    seen.add(key)
-                    reports.append(census_repo(repo, args.fetch, not args.no_gh))
+            reports = [census_repo(repo, args.fetch, not args.no_gh)
+                       for repo in collect_repos(args.repos, args.roots)]
             if args.json:
                 print(json.dumps(reports, ensure_ascii=False, indent=2))
             else:
                 print_census(reports)
         elif args.cmd == "sync":
             print(json.dumps(sync_base(Path(args.repo), args.base), ensure_ascii=False, indent=2))
+        elif args.cmd == "clean":
+            reports = [clean_repo(repo, args.apply, not args.no_gh)
+                       for repo in collect_repos(args.repos, args.roots)]
+            if args.json:
+                print(json.dumps(reports, ensure_ascii=False, indent=2))
+            else:
+                print_clean(reports)
         else:
             print(json.dumps(ship(args), ensure_ascii=False, indent=2))
     except Stop as exc:

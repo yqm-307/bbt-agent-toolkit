@@ -391,6 +391,131 @@ class CloseoutCase(unittest.TestCase):
         self.assertEqual(self.remote_ref("trunk"), trunk_sha, "ship 不应推送 trunk")
 
 
+    # ---------- clean：批量收尾清理（默认 dry-run，--apply 才删） ----------
+
+    def merge_feat_to_remote_main(self):
+        """把 feat/x 推到远端，并将其 head 快进合入远端 main（真实 ff，不需要 gh）。"""
+        git(self.main, "push", "-q", "origin", "feat/x")
+        git(self.main, "push", "-q", "origin", f"{self.head}:refs/heads/main")
+
+    def clean(self, *extra, cwd=None):
+        return self.cli("clean", "--json", *extra, str(self.main), cwd=cwd or self.tmp)
+
+    def test_clean_dry_run_lists_but_deletes_nothing(self):
+        self.merge_feat_to_remote_main()
+        base_before = git(self.main, "rev-parse", "main")
+        proc = self.clean()
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        rep = json.loads(proc.stdout)[0]
+        self.assertFalse(rep["apply"])
+        self.assertTrue(any("将删除 worktree" in a for a in rep["actions"]), rep["actions"])
+        self.assertTrue(self.wt.exists())
+        self.assertTrue(self.branch_exists("feat/x"))
+        self.assertEqual(self.remote_ref("feat/x"), self.head)
+        self.assertEqual(git(self.main, "rev-parse", "main"), base_before, "dry-run 不得动基线")
+
+    def test_clean_apply_removes_merged_and_fastforwards_base(self):
+        self.merge_feat_to_remote_main()
+        proc = self.clean("--apply")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        rep = json.loads(proc.stdout)[0]
+        self.assertTrue(rep["apply"])
+        self.assertFalse(self.wt.exists(), "已合并干净 worktree 应删除")
+        self.assertFalse(self.branch_exists("feat/x"))
+        self.assertIsNone(self.remote_ref("feat/x"))
+        self.assertEqual(git(self.main, "rev-parse", "main"), self.head, "基线应快进")
+        self.assertIn("快进", rep["main"])
+
+    def test_clean_holds_dirty_worktree(self):
+        self.merge_feat_to_remote_main()
+        (self.wt / "c.txt").write_text("c\n")
+        proc = self.clean("--apply")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        rep = json.loads(proc.stdout)[0]
+        self.assertTrue(self.wt.exists())
+        self.assertTrue(self.branch_exists("feat/x"))
+        self.assertTrue(any(str(self.wt) in h for h in rep["held"]), rep["held"])
+
+    def test_clean_holds_untracked_worktree(self):
+        self.merge_feat_to_remote_main()
+        (self.wt / "untracked.txt").write_text("u\n")
+        proc = self.clean("--apply")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertTrue(self.wt.exists(), "含未跟踪文件的 worktree 不得删除")
+        self.assertTrue(any(str(self.wt) in h for h in json.loads(proc.stdout)[0]["held"]))
+
+    def test_clean_holds_unmerged(self):
+        proc = self.clean("--apply")  # setUp：feat/x 有 1 个未合并提交
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        rep = json.loads(proc.stdout)[0]
+        self.assertTrue(self.wt.exists())
+        self.assertTrue(self.branch_exists("feat/x"))
+        self.assertTrue(any("未合并" in h for h in rep["held"]), rep["held"])
+        self.assertEqual(rep["actions"], [])
+
+    def test_clean_holds_occupied_worktree(self):
+        self.merge_feat_to_remote_main()
+        holder = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"], cwd=self.wt)
+        self.addCleanup(lambda: (holder.kill(), holder.wait()))
+        proc = self.clean("--apply")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        rep = json.loads(proc.stdout)[0]
+        self.assertTrue(self.wt.exists(), "进程占用的 worktree 不得删除")
+        self.assertTrue(any("进程占用" in h for h in rep["held"]), rep["held"])
+
+    def test_clean_branch_only_merged_deleted(self):
+        git(self.main, "branch", "old/merged", "main")
+        git(self.main, "push", "-q", "origin", "old/merged")
+        proc = self.clean("--apply")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertFalse(self.branch_exists("old/merged"))
+        self.assertIsNone(self.remote_ref("old/merged"))
+        self.assertTrue(self.wt.exists(), "未合并的 feat/x 不动")
+
+    def test_clean_remote_advanced_keeps_remote(self):
+        self.merge_feat_to_remote_main()
+        other = self.tmp / "advancer-feat"
+        git(self.tmp, "clone", "-q", str(self.remote), str(other))
+        git(other, "checkout", "-q", "-b", "adv", "origin/feat/x")
+        (other / "z.txt").write_text("z\n")
+        git(other, "add", "z.txt")
+        git(other, "commit", "-q", "-m", "later")
+        git(other, "push", "-q", "origin", "adv:refs/heads/feat/x")
+        proc = self.clean("--apply")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertFalse(self.wt.exists())
+        self.assertFalse(self.branch_exists("feat/x"), "本地仍停在已合并 head 应删")
+        self.assertIsNotNone(self.remote_ref("feat/x"), "已推进的远端分支不得删除")
+
+    def test_clean_never_touches_main_or_longlived(self):
+        git(self.main, "branch", "master", "main")
+        self.merge_feat_to_remote_main()
+        proc = self.clean("--apply")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        rep = json.loads(proc.stdout)[0]
+        self.assertTrue(self.branch_exists("master"))
+        self.assertTrue((self.main / "a.txt").exists())
+        self.assertFalse(any("master" in a for a in rep["actions"]), rep["actions"])
+
+    def test_clean_detached_clean_worktree_removed(self):
+        wt_d = self.tmp / "wt-detached"
+        git(self.main, "worktree", "add", "-q", "--detach", str(wt_d), "main")
+        proc = self.clean("--apply")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertFalse(wt_d.exists(), "干净且无独有提交的 detached worktree 应删除")
+        self.assertTrue(self.wt.exists(), "未合并的 feat/x 不动")
+
+    def test_clean_prunes_stale_registration(self):
+        wt_gone = self.tmp / "wt-gone"
+        git(self.main, "worktree", "add", "-q", "--detach", str(wt_gone), "main")
+        shutil.rmtree(wt_gone)
+        proc = self.clean("--apply")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        rep = json.loads(proc.stdout)[0]
+        self.assertNotIn(str(wt_gone), git(self.main, "worktree", "list"))
+        self.assertTrue(any("prune" in a for a in rep["actions"]), rep["actions"])
+
+
 class CensusRootsCase(unittest.TestCase):
     """census --roots 的行为契约：发现规则（.git 是目录才算主仓、找到即停、符号链接不跟随、
     不可读/不存在静默跳过、同层按名排序 DFS）、深度上限（根=0 层，探到第 4 层）、

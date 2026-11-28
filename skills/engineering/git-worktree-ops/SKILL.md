@@ -1,7 +1,7 @@
 ---
 name: git-worktree-ops
-description: "Use when committing or pushing from a linked worktree, closing out a branch through PR, CI and merge, hardening a repo's .gitignore, inventorying in-progress worktrees, or turning uncommitted changes into reviewable commit groups."
-version: "1.0.0"
+description: "Use when committing or pushing from a linked worktree, closing out a branch through PR, CI and merge, batch-cleaning merged worktrees and branches at task close-out, hardening a repo's .gitignore, inventorying in-progress worktrees, or turning uncommitted changes into reviewable commit groups."
+version: "1.1.0"
 metadata:
   hermes:
     tags: [git, workflow, hygiene]
@@ -21,15 +21,18 @@ metadata:
 
 ## 0. 收口与盘点：先用现成命令
 
-`scripts/git_closeout.py`（Python 3.10+，只用标准库；`ship` 需要已登录的 `gh`）把第 1 节的推送/PR 与第 4 节的盘点做成了命令，固定流程不再逐步手敲：
+`scripts/git_closeout.py`（Python 3.10+，只用标准库；`ship` 需要已登录的 `gh`）把第 1 节的推送/PR、第 4 节的盘点与批量收尾清理做成了命令，固定流程不再逐步手敲：
 
 ```bash
 python3 "$SKILL_DIR/scripts/git_closeout.py" census <repo>... [--roots <根目录>...] [--fetch] [--json]   # 只读盘点
+python3 "$SKILL_DIR/scripts/git_closeout.py" clean <repo>... [--roots <根目录>...] [--apply] [--json]    # 批量收尾清理，默认 dry-run
 python3 "$SKILL_DIR/scripts/git_closeout.py" sync                                   # 把本地基线安全快进到 origin/<base>
 python3 "$SKILL_DIR/scripts/git_closeout.py" ship [--title T] [--body-file F]       # 在功能分支的工作区里运行
 ```
 
-- `census`：列出每个 worktree 与本地分支是「进行中 / 已合并可清理 / 无独有提交」，以及基线是否落后、能否快进。squash 合并要靠 `gh` 里指向同一基线的 PR 记录识别，`--no-gh` 或 gh 读取失败时会显示为未合并。基线、默认分支与 main/master 不列为可清理。「清理所有 worktree」这类跨仓请求先 `census --roots <代码根目录>` 拿到可清理集合，列成一份清单一次确认，授权后整批清理（清理对象已由用户点名时不再另问）。
+- `census`：列出每个 worktree 与本地分支是「进行中 / 已合并可清理 / 无独有提交」，以及基线是否落后、能否快进。squash 合并要靠 `gh` 里指向同一基线的 PR 记录识别，`--no-gh` 或 gh 读取失败时会显示为未合并。基线、默认分支与 main/master 不列为可清理。「清理所有 worktree」这类跨仓请求用 `clean --roots <代码根目录>`：默认 dry-run 出清单，授权后 `--apply` 整批执行（授权口径见 clean 条）。
+- `clean`：收尾清理的批量执行入口，agent 一次跑完，不逐条手敲 git、不让用户手动执行。每次现跑 census 分类（含 fetch --prune），只动安全集：干净且已合并（或无独有提交）的 worktree、本地分支与远端分支；基线、main/master 与长期分支永不删除。默认 dry-run 只出「将删除 / 保留」清单，`--apply` 才执行。删除沿用 ship 的保护：worktree remove 不带 --force（有改动或未跟踪文件会拒绝）、本地分支按 OID 条件删（不用 -D）、远端 force-with-lease 且 tip 必须等于盘点时的已合并 head；另按 /proc 查进程占用，cwd 落在 worktree 内的进程使其保留（无 /proc 的平台检查不可用，worktree 保守保留，分支删除不受影响）。清完 prune 失效登记并调 sync 快进基线；基线脏或分叉时只报告。保留集（未合并、脏、占用）只报告不动，交用户决定。输出 JSON 的 actions/held/main 就是交付证据，原样转述。
+- 授权口径：用户一句「收尾清理」「清理 worktree 和分支」就是对整批安全集的授权（含已合并远端分支的删除），agent 直接 `clean --apply` 跑完并汇报结果与保留清单，不逐条再问；用户只想看清单时跑 dry-run。清理对象已由用户点名时不再另问。
 - `ship`：推送 → 开或复用 PR（只复用同仓、指向本基线的 PR）→ 等 CI → 合并（默认 squash，`--match-head-commit` 锁定刚验证的提交）→ 确认合并提交已在 `origin/<基线>` → 快进本地基线 → 清理 worktree、本地与远端分支。清理只删仍停在已合并 head 上的对象：worktree 已切走、分支或远端已推进时保留并说明。工作区不干净、没有新提交、在长期分支上、CI 失败或超时、PR 是草稿、分支保护拦截（`BLOCKED`/`BEHIND`/`DIRTY`）时停下并以退出码 2 说明原因；不强推、不强删、不绕过保护。`--no-merge` 停在合并前，`--keep-worktree` 不清理。
 - 用户一句「收口」「提 PR，CI 绿了合掉」就是对整条链的授权，不逐步再问；仓库规范写明不自行合并时，用 `--no-merge` 停在合并前再问。基线工作区有别人的未提交改动时只报告、不快进。
 - 例外：基线工作区的未提交改动正是刚合入远端的内容时（如先拆到 worktree 提交并 ship 的本地积压），先证明再快进：`HEAD` 是 `origin/<基线>` 的祖先；`git diff --binary HEAD` 导出的补丁，在用 `git read-tree origin/<基线>` 初始化的临时 `GIT_INDEX_FILE` 上能通过 `git apply --cached --reverse --check`；没有进程占用工作区。三项都成立才 `git stash push` → `git merge --ff-only origin/<基线>` → 成功后 `git stash drop`；任一项不成立仍只报告、不快进。未跟踪文件不在这项检查里，保持原样。
