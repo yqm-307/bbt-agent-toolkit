@@ -30,11 +30,11 @@
 
 ## Worktree 和分支盘点
 
-在本会话碰过的每个仓执行 `git worktree list`。主仓 `git status` 看不到其他工作树。按 `git-worktree-ops` 的盘点方法判断：
+在本会话碰过的每个仓执行 `git_closeout.py clean <仓库路径> --json`（默认 dry-run，入口见 `git-worktree-ops` §0）。输出的 `actions`（将删除）即「已收口待清理」，`held` 即「进行中或需人工判断」；分类（改动、未跟踪文件、进程占用、合并状态、未推送提交）由命令完成，不手工逐项复核。主仓 `git status` 看不到其他工作树，不能用它代替命令盘点。
 
-- **非主 worktree**：分支或 detached HEAD 提交已并入 main 或 origin/main（本地 main 落后时以 origin/main 为准）、工作树干净、`git log HEAD --not --remotes` 为空，才列为已收口待清理。有未合并提交、未提交改动或未推送提交的，只报告。
-- **独立本地分支**：已并入 main 或 origin/main、`git log <branch> --not --remotes` 为空、未被任何 worktree 检出且不是 main，才列为已收口待清理。有未推送提交的，即使已合并也只报告。
-- 只有已核实收口的 worktree 和分支可以跨创建会话列入清单。子代理为本会话任务创建的 worktree 归本会话。第一段只盘点，清理仍须按正文取得用户授权。
+- dry-run 不删除任何东西、不动基线，只经 fetch 更新远端跟踪引用。命令不可用（脚本缺失、git 异常）时按 `git-worktree-ops` 第 4 节手工盘点降级，并在检查点注明降级。
+- 仅合入未推送本地 main 的分支会被命令按未合并保留（以 origin/<基线> 为准），如实报告，不清理。
+- 只有已核实收口的 worktree 和分支可以跨创建会话列入清单（命令的安全集满足此条件）。子代理为本会话任务创建的 worktree 归本会话。第一段只盘点，清理仍须按正文取得用户授权。
 
 ## 回顾本会话历史
 
