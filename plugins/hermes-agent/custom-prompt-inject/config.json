@@ -57,10 +57,7 @@
       "inject_into": [
         "system_prompt",
         "user_context"
-      ],
-      "when": {
-        "subagent": false
-      }
+      ]
     },
     {
       "id": "style-sol",
@@ -95,10 +92,7 @@
       "inject_into": [
         "system_prompt",
         "user_context"
-      ],
-      "when": {
-        "subagent": false
-      }
+      ]
     },
     {
       "id": "collab-when-default",
@@ -145,10 +139,7 @@
       "inject_into": [
         "system_prompt",
         "user_context"
-      ],
-      "when": {
-        "subagent": false
-      }
+      ]
     },
     {
       "id": "omh-default",
