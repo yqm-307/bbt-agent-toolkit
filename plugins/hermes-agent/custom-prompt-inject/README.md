@@ -17,13 +17,18 @@
       "when": {"subagent": true}
     },
     {
-      "id": "special-model-first-turn",
-      "prompt": "prompts/special.md",
+      "id": "style-sol",
+      "prompt": "prompts/style/sol.md",
+      "slot": "style",
+      "inject_into": ["user_context"],
+      "when": {"model_regex": "^gpt-6\\.2-sol"}
+    },
+    {
+      "id": "encourage-openai-first",
+      "prompt": "prompts/encourage/openai.md",
       "inject_into": ["user_context"],
       "when": {
-        "model": "gpt-6.1-sol",
-        "models": ["gpt-6.1-sol", "gpt-6-luna"],
-        "model_regex": "^gpt-6",
+        "model_regex": "^gpt-",
         "subagent": false,
         "first_injection": true
       }
@@ -44,7 +49,11 @@
 - `when.model_regex`：模型正则，字符串或字符串数组，数组内部取 OR。
 - `when.first_injection`：只对 `user_context` 有效；`true` 表示该规则在本会话首次注入时匹配，`false` 表示已有该规则历史注入后才匹配。
 
-同一条规则中声明的条件取 AND；没有声明的条件不参与判断。模型精确值、模型列表和正则同时声明时必须同时满足。段落按配置顺序拼接：上限由 `max_chars` 决定（默认 2,000，最大 10,000）：system_prompt 另受宿主限制，单段上限读取宿主常量（读取不到时用 4,000），所有插件的合计上限也由宿主决定（未打补丁时为 8,000）（按段 id 排序，超出的整段被丢弃），只适合放很短的内容；长内容用 user_context，宿主默认超过 10,000 字（`hooks.output_spill.max_chars`）会落盘成文件；user_context 只发送能完整放入本轮剩余空间的通知，单条通知放不进上限时会持续暂缓，直到提示词缩短。
+同一条规则中声明的条件取 AND；没有声明的条件不参与判断。模型精确值、模型列表和正则同时声明时必须同时满足。段落按配置顺序拼接，各环节上限：
+
+- 本插件 `max_chars`：默认 2,000，最大 10,000；
+- `system_prompt` 单段上限读取宿主常量（读取不到时按 4,000），所有插件的合计上限由宿主决定（未打补丁时为 8,000），按段 id 排序、超出的整段被丢弃——只适合放很短的内容；
+- 长内容用 `user_context`：宿主默认超过 10,000 字（`hooks.output_spill.max_chars`）会落盘成文件；只发送能完整放入本轮剩余空间的通知，单条通知放不进上限时会持续暂缓，直到提示词缩短。
 
 ## 注入与去重
 
